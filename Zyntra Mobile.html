@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zyntra — Mobile App</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="zyntra-shared.jsx"></script>
+<script type="text/babel" src="zyntra-login.jsx"></script>
+<script type="text/babel" src="zyntra-home.jsx"></script>
+<script type="text/babel" src="zyntra-modules.jsx"></script>
+<script type="text/babel" src="zyntra-nav.jsx"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(ellipse 120% 80% at 50% -10%, #0d1a3a 0%, #050810 60%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 0; }
+  button { font-family: 'DM Sans', system-ui, sans-serif; }
+  input { font-family: 'DM Sans', system-ui, sans-serif; }
+
+  /* Label de tela visível no canvas */
+  .screen-label {
+    position: absolute;
+    top: -28px; left: 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 0.5px;
+    font-family: 'DM Sans', sans-serif;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ── Screen transition wrapper ────────────────────────────────
+function AnimatedScreen({ children, screenKey }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    requestAnimationFrame(() => setVisible(true));
+    return () => setVisible(false);
+  }, [screenKey]);
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      opacity: visible ? 1 : 0,
+      transform: visible ? 'translateX(0)' : 'translateX(24px)',
+      transition: 'opacity 0.22s ease, transform 0.22s ease',
+    }}>
+      {children}
+    </div>
+  );
+}
+
+// ── Main App ─────────────────────────────────────────────────
+function ZyntraApp() {
+  const [screen, setScreen] = useState('login');   // 'login' | 'main'
+  const [tab, setTab] = useState('home');           // bottom nav tab
+  const [module, setModule] = useState(null);       // active module id or null
+  const [prevTab, setPrevTab] = useState('home');
+
+  const notifCount = 3;
+
+  const openModule = (id) => {
+    setPrevTab(tab);
+    setModule(id);
+  };
+  const closeModule = () => {
+    setModule(null);
+  };
+  const changeTab = (t) => {
+    setModule(null);
+    setTab(t);
+  };
+
+  const moduleComponents = {
+    financeiro: <FinanceiroScreen onBack={closeModule}/>,
+    vendas: <VendasScreen onBack={closeModule}/>,
+    rh: <RHScreen onBack={closeModule}/>,
+    pcp: <PCPScreen onBack={closeModule}/>,
+    logistica: <LogisticaScreen onBack={closeModule}/>,
+    faturamento: <FaturamentoScreen onBack={closeModule}/>,
+    compras: <ComprasScreen onBack={closeModule}/>,
+  };
+
+  const mainContent = module
+    ? <AnimatedScreen screenKey={module}>{moduleComponents[module]}</AnimatedScreen>
+    : <AnimatedScreen screenKey={tab}>
+        {tab === 'home' && <HomeScreen onModuleOpen={openModule} onGoNotifications={() => changeTab('notifications')}/>}
+        {tab === 'modules' && <ModulosScreen onModuleOpen={openModule}/>}
+        {tab === 'notifications' && <NotificacoesScreen/>}
+        {tab === 'profile' && <PerfilScreen onLogout={() => { setScreen('login'); setTab('home'); setModule(null); }}/>}
+      </AnimatedScreen>;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 32, padding: '40px 24px' }}>
+      {/* Header label */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <img src="uploads/logo-1777551715119.png" style={{ width: 28, height: 28, objectFit: 'contain', filter: 'invert(1) brightness(2)' }} alt=""/>
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.5 }}>ZYNTRA — APP MOBILE</span>
+        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', fontWeight: 400 }}>iOS prototype</span>
+      </div>
+
+      {/* Phones row */}
+      <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'center' }}>
+
+        {/* Phone 1: Login */}
+        <div style={{ position: 'relative' }}>
+          <div className="screen-label">Login</div>
+          <IOSDevice width={360} height={780} dark={true}>
+            <IOSStatusBar dark={true} time="9:41"/>
+            <div style={{ position: 'absolute', top: 60, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
+              <LoginScreen onLogin={() => {}}/>
+            </div>
+          </IOSDevice>
+        </div>
+
+        {/* Phone 2: Main App (interactive) */}
+        <div style={{ position: 'relative' }}>
+          <div className="screen-label">App Principal (interativo)</div>
+          <IOSDevice width={360} height={780} dark={true}>
+            <IOSStatusBar dark={true} time="9:41"/>
+            <div style={{ position: 'absolute', top: 60, left: 0, right: 0, bottom: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#090C14' }}>
+              {screen === 'login' ? (
+                <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                  <LoginScreen onLogin={() => { setScreen('main'); setTab('home'); }}/>
+                </div>
+              ) : (
+                <>
+                  <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                    {mainContent}
+                  </div>
+                  <BottomNav tab={module ? prevTab : tab} onChange={changeTab} notifCount={notifCount}/>
+                </>
+              )}
+            </div>
+          </IOSDevice>
+        </div>
+
+        {/* Phone 3: Dashboard */}
+        <div style={{ position: 'relative' }}>
+          <div className="screen-label">Dashboard</div>
+          <IOSDevice width={360} height={780} dark={true}>
+            <IOSStatusBar dark={true} time="9:41"/>
+            <div style={{ position: 'absolute', top: 60, left: 0, right: 0, bottom: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#090C14' }}>
+              <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                <HomeScreen onModuleOpen={() => {}} onGoNotifications={() => {}}/>
+              </div>
+              <BottomNav tab="home" onChange={() => {}} notifCount={3}/>
+            </div>
+          </IOSDevice>
+        </div>
+
+        {/* Phone 4: Financeiro */}
+        <div style={{ position: 'relative' }}>
+          <div className="screen-label">Financeiro</div>
+          <IOSDevice width={360} height={780} dark={true}>
+            <IOSStatusBar dark={true} time="9:41"/>
+            <div style={{ position: 'absolute', top: 60, left: 0, right: 0, bottom: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#090C14' }}>
+              <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                <FinanceiroScreen onBack={() => {}}/>
+              </div>
+              <BottomNav tab="modules" onChange={() => {}} notifCount={0}/>
+            </div>
+          </IOSDevice>
+        </div>
+
+        {/* Phone 5: Vendas */}
+        <div style={{ position: 'relative' }}>
+          <div className="screen-label">Vendas</div>
+          <IOSDevice width={360} height={780} dark={true}>
+            <IOSStatusBar dark={true} time="9:41"/>
+            <div style={{ position: 'absolute', top: 60, left: 0, right: 0, bottom: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#090C14' }}>
+              <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                <VendasScreen onBack={() => {}}/>
+              </div>
+              <BottomNav tab="modules" onChange={() => {}} notifCount={0}/>
+            </div>
+          </IOSDevice>
+        </div>
+
+        {/* Phone 6: RH */}
+        <div style={{ position: 'relative' }}>
+          <div className="screen-label">RH</div>
+          <IOSDevice width={360} height={780} dark={true}>
+            <IOSStatusBar dark={true} time="9:41"/>
+            <div style={{ position: 'absolute', top: 60, left: 0, right: 0, bottom: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#090C14' }}>
+              <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                <RHScreen onBack={() => {}}/>
+              </div>
+              <BottomNav tab="modules" onChange={() => {}} notifCount={0}/>
+            </div>
+          </IOSDevice>
+        </div>
+
+        {/* Phone 7: Notificações */}
+        <div style={{ position: 'relative' }}>
+          <div className="screen-label">Notificações</div>
+          <IOSDevice width={360} height={780} dark={true}>
+            <IOSStatusBar dark={true} time="9:41"/>
+            <div style={{ position: 'absolute', top: 60, left: 0, right: 0, bottom: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#090C14' }}>
+              <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                <NotificacoesScreen/>
+              </div>
+              <BottomNav tab="notifications" onChange={() => {}} notifCount={3}/>
+            </div>
+          </IOSDevice>
+        </div>
+
+        {/* Phone 8: Perfil */}
+        <div style={{ position: 'relative' }}>
+          <div className="screen-label">Perfil</div>
+          <IOSDevice width={360} height={780} dark={true}>
+            <IOSStatusBar dark={true} time="9:41"/>
+            <div style={{ position: 'absolute', top: 60, left: 0, right: 0, bottom: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#090C14' }}>
+              <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                <PerfilScreen onLogout={() => {}}/>
+              </div>
+              <BottomNav tab="profile" onChange={() => {}} notifCount={0}/>
+            </div>
+          </IOSDevice>
+        </div>
+
+      </div>
+
+      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', marginBottom: 24 }}>
+        O segundo celular é totalmente interativo — navegue pelas telas, módulos e notificações.
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<ZyntraApp/>);
+</script>
+</body>
+</html>
