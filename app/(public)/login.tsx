@@ -39,15 +39,32 @@ export default function LoginScreen() {
     }
 
     try {
-      const credentials = tab === 'email' 
-        ? { email: field, senha } 
-        : { cpf: field, senha };
+      // API uses 'password' field, not 'senha'
+      const credentials = { 
+        email: field.trim(), 
+        password: senha 
+      };
       
-      await login(credentials);
-      setSuccess(true);
-      setTimeout(() => {
-        router.replace('/(auth)');
-      }, 500);
+      const response = await login(credentials);
+      
+      if (response.success) {
+        setSuccess(true);
+        
+        // Check if password change is required
+        if (response.forcePasswordChange) {
+          Alert.alert(
+            'Alterar Senha',
+            'Sua senha precisa ser alterada. Acesse a versão web para atualizar.',
+            [{ text: 'OK', onPress: () => router.replace('/(auth)') }]
+          );
+        } else {
+          setTimeout(() => {
+            router.replace('/(auth)');
+          }, 500);
+        }
+      } else {
+        Alert.alert('Erro', response.message || 'Falha no login');
+      }
     } catch (error: any) {
       Alert.alert('Erro', error?.message || 'Falha no login. Verifique suas credenciais.');
     }
