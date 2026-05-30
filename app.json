@@ -20,7 +20,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Permitir acesso a camera para leitura de codigos de barras e QR codes",
         "NSFaceIDUsageDescription": "Permitir uso do Face ID para login seguro",
-        "NSLocationWhenInUseUsageDescription": "Permitir acesso a localizacao para rastreamento de entregas"
+        "NSLocationWhenInUseUsageDescription": "Permitir acesso a localizacao para rastreamento de entregas",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
