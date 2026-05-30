@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Zyntra",
-    "slug": "zyntra-mobile",
+    "slug": "zyntraaa",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.jpg",
@@ -71,9 +71,9 @@
         "origin": false
       },
       "eas": {
-        "projectId": "SUBSTITUA-PELO-UUID-DO-EAS-PROJECT"
+        "projectId": "b5a12dc3-0725-43f1-bb1a-f4b837bb76e7"
       }
     },
-    "owner": "aluforce"
+    "owner": "antoniodevs"
   }
 }
