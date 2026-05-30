@@ -4,12 +4,12 @@
     "slug": "zyntra-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon.jpg",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "scheme": "zyntra",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash-icon.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#090C14"
     },
@@ -27,7 +27,7 @@
       "package": "br.com.aluforce.zyntra",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon.jpg",
         "backgroundColor": "#090C14"
       },
       "permissions": [
@@ -43,7 +43,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.jpg"
     },
     "plugins": [
       "expo-router",
@@ -57,7 +57,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
+          "icon": "./assets/notification-icon.jpg",
           "color": "#3B82F6",
           "sounds": []
         }
@@ -71,7 +71,7 @@
         "origin": false
       },
       "eas": {
-        "projectId": "zyntra-mobile"
+        "projectId": "SUBSTITUA-PELO-UUID-DO-EAS-PROJECT"
       }
     },
     "owner": "aluforce"

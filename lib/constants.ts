@@ -1,7 +1,7 @@
 import type { Module } from '@/types';
 
-// API Configuration
-export const API_BASE_URL = 'https://aluforce.api.br/api';
+// API Configuration — URL via variável de ambiente (nunca hardcoded)
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://aluforce.api.br/api';
 export const API_TIMEOUT = 30000;
 
 // Colors - Zyntra Design System
@@ -35,54 +35,61 @@ export const Colors = {
 
 // Modules Configuration
 export const MODULES: Module[] = [
-  { 
-    id: 'financeiro', 
-    label: 'Financeiro', 
-    color: Colors.accent, 
+  {
+    id: 'financeiro',
+    label: 'Financeiro',
+    color: Colors.accent,
     dim: Colors.accentDim,
-    description: 'Contas, DRE, Fluxo de Caixa'
+    description: 'Contas, DRE, Fluxo de Caixa',
+    area: 'financeiro',
   },
-  { 
-    id: 'vendas', 
-    label: 'Vendas', 
-    color: Colors.green, 
+  {
+    id: 'vendas',
+    label: 'Vendas',
+    color: Colors.green,
     dim: Colors.greenDim,
-    description: 'Pedidos, Funil, Metas'
+    description: 'Pedidos, Funil, Metas',
+    area: 'vendas',
   },
-  { 
-    id: 'rh', 
-    label: 'RH', 
-    color: Colors.purple, 
+  {
+    id: 'rh',
+    label: 'RH',
+    color: Colors.purple,
     dim: Colors.purpleDim,
-    description: 'Colaboradores, Ponto'
+    description: 'Colaboradores, Ponto',
+    area: 'rh',
   },
-  { 
-    id: 'pcp', 
-    label: 'PCP', 
-    color: Colors.yellow, 
+  {
+    id: 'pcp',
+    label: 'PCP',
+    color: Colors.yellow,
     dim: Colors.yellowDim,
-    description: 'Ordens de Producao'
+    description: 'Ordens de Producao',
+    area: 'pcp',
   },
-  { 
-    id: 'logistica', 
-    label: 'Logistica', 
-    color: Colors.teal, 
+  {
+    id: 'logistica',
+    label: 'Logistica',
+    color: Colors.teal,
     dim: Colors.tealDim,
-    description: 'Entregas, Rotas'
+    description: 'Entregas, Rotas',
+    area: 'logistica',
   },
-  { 
-    id: 'faturamento', 
-    label: 'Faturamento', 
-    color: Colors.red, 
+  {
+    id: 'faturamento',
+    label: 'Faturamento',
+    color: Colors.red,
     dim: Colors.redDim,
-    description: 'NF-e, Faturas'
+    description: 'NF-e, Faturas',
+    area: 'nfe',
   },
-  { 
-    id: 'compras', 
-    label: 'Compras', 
-    color: Colors.orange, 
+  {
+    id: 'compras',
+    label: 'Compras',
+    color: Colors.orange,
     dim: Colors.orangeDim,
-    description: 'PC, Fornecedores'
+    description: 'PC, Fornecedores',
+    area: 'compras',
   },
 ];
 

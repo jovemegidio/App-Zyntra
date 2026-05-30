@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { authApi } from '@/lib/api';
 import { Colors } from '@/lib/constants';
 import { Button, Input, ScreenHeader } from '@/components/ui';
 
@@ -17,12 +18,15 @@ export default function RecuperarSenhaScreen() {
     }
 
     setLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await authApi.requestPasswordReset(email.trim().toLowerCase());
       setSent(true);
-    }, 1500);
+    } catch {
+      // Sempre mostrar mensagem de sucesso por segurança (não revelar se e-mail existe)
+      setSent(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

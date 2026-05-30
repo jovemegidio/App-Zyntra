@@ -79,23 +79,7 @@ export default function AuthLayout() {
           tabBarIcon: ({ focused }) => (
             <View style={{ alignItems: 'center' }}>
               <IconBell size={22} color={focused ? Colors.accent : Colors.muted} />
-              <View
-                style={{
-                  position: 'absolute',
-                  top: -2,
-                  right: -8,
-                  width: 16,
-                  height: 16,
-                  borderRadius: 8,
-                  backgroundColor: Colors.red,
-                  borderWidth: 2,
-                  borderColor: Colors.surface,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ fontSize: 9, color: '#fff', fontWeight: '700' }}>3</Text>
-              </View>
+              {/* Badge de notificações — conectar à API quando disponível */}
               {focused && (
                 <View
                   style={{

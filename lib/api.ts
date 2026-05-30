@@ -2,14 +2,13 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL, API_TIMEOUT } from './constants';
 
-// Create axios instance
+// Create axios instance — withCredentials removido: mobile usa Bearer token, não cookie
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: API_TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,
 });
 
 // Token storage keys

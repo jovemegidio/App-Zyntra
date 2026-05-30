@@ -47,8 +47,7 @@ export interface Module {
   color: string;
   dim: string;
   description: string;
-  icon: string;
-  area: string; // Permission area required
+  area: string;
 }
 
 // ============================================================

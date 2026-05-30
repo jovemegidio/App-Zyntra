@@ -1,31 +1,89 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
+import { financeiroApi } from '@/lib/api';
 import { Colors } from '@/lib/constants';
 import { Card, SectionLabel, ScreenHeader, StatusPill, IconPlus } from '@/components/ui';
+import type { ContaReceber, ContaPagar, FinanceiroDashboard } from '@/types';
+
+function fmtCurrency(value?: number | null) {
+  if (value == null) return 'R$ --';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+}
+
+function fmtDate(dateStr?: string | null) {
+  if (!dateStr) return '--';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('pt-BR');
+  } catch {
+    return dateStr;
+  }
+}
+
+function statusContaReceber(status?: string): { label: string; color: string; bg: string } {
+  switch (status) {
+    case 'pago':
+    case 'liquidada':
+    case 'recebida':
+      return { label: 'Paga', color: Colors.green, bg: Colors.greenDim };
+    case 'vencida':
+    case 'vencido':
+      return { label: 'Vencida', color: Colors.red, bg: Colors.redDim };
+    case 'a_vencer':
+      return { label: 'A Vencer', color: Colors.green, bg: Colors.greenDim };
+    default:
+      return { label: 'Pendente', color: Colors.yellow, bg: Colors.yellowDim };
+  }
+}
 
 export default function FinanceiroScreen() {
-  const meses = ['Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-  const rec = [82, 95, 88, 110, 98, 124];
-  const pag = [60, 72, 65, 80, 74, 91];
-  const maxVal = Math.max(...rec);
+  const {
+    data: dashboard,
+    isLoading: dashLoading,
+    isError: dashError,
+    refetch: refetchDash,
+    isRefetching: dashRefetching,
+  } = useQuery<FinanceiroDashboard>({
+    queryKey: ['financeiro', 'dashboard'],
+    queryFn: () => financeiroApi.getDashboard(),
+    retry: 1,
+  });
 
-  const contasReceber = [
-    { cli: 'Empresa Alpha Ltda', venc: '03/06', valor: 'R$ 28.400', status: 'Vencendo', sc: Colors.yellow, sd: Colors.yellowDim },
-    { cli: 'Grupo Beta S.A.', venc: '10/06', valor: 'R$ 15.200', status: 'A Vencer', sc: Colors.green, sd: Colors.greenDim },
-    { cli: 'Ind. Gama Ltda', venc: '18/06', valor: 'R$ 42.000', status: 'A Vencer', sc: Colors.green, sd: Colors.greenDim },
-    { cli: 'Com. Delta Eireli', venc: '28/05', valor: 'R$ 9.800', status: 'Vencida', sc: Colors.red, sd: Colors.redDim },
-  ];
+  const {
+    data: contasReceber,
+    isLoading: crLoading,
+    refetch: refetchCR,
+  } = useQuery<ContaReceber[]>({
+    queryKey: ['financeiro', 'contas-receber'],
+    queryFn: async () => {
+      const res = await financeiroApi.getContasReceber({ status: 'pendente' });
+      return Array.isArray(res) ? res : res?.data ?? [];
+    },
+    retry: 1,
+  });
 
-  const dre = [
-    { label: 'Receita Bruta', value: 'R$ 1.240.000', color: Colors.text },
-    { label: '(-) Deducoes', value: '- R$ 124.000', color: Colors.red },
-    { label: 'Receita Liquida', value: 'R$ 1.116.000', color: Colors.text },
-    { label: '(-) CMV', value: '- R$ 620.000', color: Colors.red },
-    { label: 'Lucro Bruto', value: 'R$ 496.000', color: Colors.green, highlight: true },
-    { label: '(-) Despesas Op.', value: '- R$ 248.000', color: Colors.red },
-    { label: 'Lucro Liquido', value: 'R$ 248.000', color: Colors.accent, highlight: true },
-  ];
+  const {
+    data: contasPagar,
+    isLoading: cpLoading,
+    refetch: refetchCP,
+  } = useQuery<ContaPagar[]>({
+    queryKey: ['financeiro', 'contas-pagar'],
+    queryFn: async () => {
+      const res = await financeiroApi.getContasPagar({ status: 'pendente' });
+      return Array.isArray(res) ? res : res?.data ?? [];
+    },
+    retry: 1,
+  });
+
+  const isRefreshing = dashRefetching;
+
+  const handleRefresh = () => {
+    refetchDash();
+    refetchCR();
+    refetchCP();
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={['top']}>
@@ -39,103 +97,143 @@ export default function FinanceiroScreen() {
         }
       />
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingTop: 8, gap: 14 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 14, paddingTop: 8, gap: 14 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.accent}
+            colors={[Colors.accent]}
+          />
+        }
+      >
         {/* Saldo cards */}
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {[
-            { label: 'Saldo', value: 'R$ 342K', color: Colors.text },
-            { label: 'A Receber', value: 'R$ 124K', color: Colors.green },
-            { label: 'A Pagar', value: 'R$ 91K', color: Colors.red },
-          ].map((c, i) => (
-            <Card key={i} style={{ flex: 1, padding: 12, alignItems: 'center' }}>
-              <Text style={{ fontSize: 9.5, color: Colors.muted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 }}>
-                {c.label}
-              </Text>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: c.color }}>{c.value}</Text>
-            </Card>
-          ))}
-        </View>
-
-        {/* Fluxo de caixa */}
-        <View>
-          <SectionLabel text="Fluxo de Caixa — 6 meses" />
-          <Card style={{ padding: 14 }}>
-            <View style={{ flexDirection: 'row', gap: 16, marginBottom: 10 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: Colors.accent }} />
-                <Text style={{ fontSize: 11, color: Colors.muted }}>Receita</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: Colors.red }} />
-                <Text style={{ fontSize: 11, color: Colors.muted }}>Despesa</Text>
-              </View>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-end', height: 80 }}>
-              {meses.map((m, i) => (
-                <View key={i} style={{ flex: 1, alignItems: 'center', gap: 3 }}>
-                  <View style={{ width: '100%', flexDirection: 'row', gap: 2, alignItems: 'flex-end', height: 60 }}>
-                    <View style={{ flex: 1, backgroundColor: Colors.accent, borderTopLeftRadius: 3, borderTopRightRadius: 3, height: (rec[i] / maxVal) * 60, opacity: 0.85 }} />
-                    <View style={{ flex: 1, backgroundColor: Colors.red, borderTopLeftRadius: 3, borderTopRightRadius: 3, height: (pag[i] / maxVal) * 60, opacity: 0.7 }} />
-                  </View>
-                  <Text style={{ fontSize: 9, color: Colors.muted }}>{m}</Text>
-                </View>
-              ))}
-            </View>
+        {dashLoading ? (
+          <View style={{ height: 80, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator color={Colors.accent} />
+          </View>
+        ) : dashError ? (
+          <Card style={{ padding: 16, alignItems: 'center' }}>
+            <Text style={{ color: Colors.red, fontSize: 13 }}>Falha ao carregar resumo financeiro</Text>
+            <TouchableOpacity onPress={() => refetchDash()} style={{ marginTop: 8 }}>
+              <Text style={{ color: Colors.accent, fontSize: 12 }}>Tentar novamente</Text>
+            </TouchableOpacity>
           </Card>
-        </View>
+        ) : (
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {[
+              { label: 'Saldo', value: fmtCurrency(dashboard?.saldo_total), color: Colors.text },
+              { label: 'A Receber', value: fmtCurrency(dashboard?.contas_receber), color: Colors.green },
+              { label: 'A Pagar', value: fmtCurrency(dashboard?.contas_pagar), color: Colors.red },
+            ].map((c, i) => (
+              <Card key={i} style={{ flex: 1, padding: 12, alignItems: 'center' }}>
+                <Text style={{ fontSize: 9.5, color: Colors.muted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 }}>
+                  {c.label}
+                </Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: c.color }}>{c.value}</Text>
+              </Card>
+            ))}
+          </View>
+        )}
 
         {/* Contas a Receber */}
         <View>
           <SectionLabel text="Contas a Receber" />
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
-            {contasReceber.map((r, i) => (
-              <View
-                key={i}
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: 12,
-                  paddingHorizontal: 14,
-                  borderBottomWidth: i < contasReceber.length - 1 ? 1 : 0,
-                  borderBottomColor: Colors.border,
-                }}
-              >
-                <View>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.text }}>{r.cli}</Text>
-                  <Text style={{ fontSize: 11, color: Colors.muted, marginTop: 2 }}>Venc: {r.venc}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.text }}>{r.valor}</Text>
-                  <StatusPill label={r.status} color={r.sc} bg={r.sd} />
-                </View>
-              </View>
-            ))}
-          </Card>
+          {crLoading ? (
+            <View style={{ height: 80, justifyContent: 'center', alignItems: 'center' }}>
+              <ActivityIndicator color={Colors.accent} size="small" />
+            </View>
+          ) : !contasReceber || contasReceber.length === 0 ? (
+            <Card style={{ padding: 16, alignItems: 'center' }}>
+              <Text style={{ fontSize: 13, color: Colors.muted }}>Nenhuma conta a receber pendente</Text>
+            </Card>
+          ) : (
+            <Card style={{ padding: 0, overflow: 'hidden' }}>
+              {contasReceber.slice(0, 6).map((r, i) => {
+                const st = statusContaReceber(r.status);
+                return (
+                  <View
+                    key={r.id ?? i}
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: 12,
+                      paddingHorizontal: 14,
+                      borderBottomWidth: i < Math.min(contasReceber.length, 6) - 1 ? 1 : 0,
+                      borderBottomColor: Colors.border,
+                    }}
+                  >
+                    <View>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.text }} numberOfLines={1}>
+                        {r.cliente_nome ?? r.descricao ?? `ID ${r.id}`}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: Colors.muted, marginTop: 2 }}>
+                        Venc: {fmtDate(r.data_vencimento)}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.text }}>
+                        {fmtCurrency(r.valor)}
+                      </Text>
+                      <StatusPill label={st.label} color={st.color} bg={st.bg} />
+                    </View>
+                  </View>
+                );
+              })}
+            </Card>
+          )}
         </View>
 
-        {/* DRE Resumo */}
+        {/* Contas a Pagar */}
         <View>
-          <SectionLabel text="DRE — Dez/2025" />
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
-            {dre.map((r, i) => (
-              <View
-                key={i}
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  padding: 10,
-                  paddingHorizontal: 14,
-                  borderBottomWidth: i < dre.length - 1 ? 1 : 0,
-                  borderBottomColor: Colors.border,
-                  backgroundColor: r.highlight ? Colors.accentGlow : 'transparent',
-                }}
-              >
-                <Text style={{ fontSize: 13, color: Colors.textSoft }}>{r.label}</Text>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: r.color }}>{r.value}</Text>
-              </View>
-            ))}
-          </Card>
+          <SectionLabel text="Contas a Pagar" />
+          {cpLoading ? (
+            <View style={{ height: 80, justifyContent: 'center', alignItems: 'center' }}>
+              <ActivityIndicator color={Colors.accent} size="small" />
+            </View>
+          ) : !contasPagar || contasPagar.length === 0 ? (
+            <Card style={{ padding: 16, alignItems: 'center' }}>
+              <Text style={{ fontSize: 13, color: Colors.muted }}>Nenhuma conta a pagar pendente</Text>
+            </Card>
+          ) : (
+            <Card style={{ padding: 0, overflow: 'hidden' }}>
+              {contasPagar.slice(0, 6).map((r, i) => {
+                const st = statusContaReceber(r.status);
+                return (
+                  <View
+                    key={r.id ?? i}
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: 12,
+                      paddingHorizontal: 14,
+                      borderBottomWidth: i < Math.min(contasPagar.length, 6) - 1 ? 1 : 0,
+                      borderBottomColor: Colors.border,
+                    }}
+                  >
+                    <View>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.text }} numberOfLines={1}>
+                        {r.fornecedor_nome ?? r.descricao ?? `ID ${r.id}`}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: Colors.muted, marginTop: 2 }}>
+                        Venc: {fmtDate(r.data_vencimento)}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.text }}>
+                        {fmtCurrency(r.valor)}
+                      </Text>
+                      <StatusPill label={st.label} color={st.color} bg={st.bg} />
+                    </View>
+                  </View>
+                );
+              })}
+            </Card>
+          )}
         </View>
 
         <View style={{ height: 20 }} />

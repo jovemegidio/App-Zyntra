@@ -1,28 +1,96 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, RefreshControl, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
+import { vendasApi } from '@/lib/api';
 import { Colors } from '@/lib/constants';
 import { Card, SectionLabel, ScreenHeader, KPICard, StatusPill, IconPlus, IconSearch } from '@/components/ui';
+import type { Pedido } from '@/types';
+
+function fmtCurrency(value?: number | null) {
+  if (value == null) return 'R$ --';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+}
+
+function fmtDate(dateStr?: string | null) {
+  if (!dateStr) return '--';
+  try {
+    return new Date(dateStr).toLocaleDateString('pt-BR');
+  } catch {
+    return dateStr;
+  }
+}
+
+function statusPedido(status?: string): { label: string; color: string; bg: string } {
+  switch (status) {
+    case 'aprovado':
+      return { label: 'Aprovado', color: Colors.green, bg: Colors.greenDim };
+    case 'faturado':
+      return { label: 'Faturado', color: Colors.accent, bg: Colors.accentDim };
+    case 'entregue':
+      return { label: 'Entregue', color: Colors.teal, bg: Colors.tealDim };
+    case 'cancelado':
+      return { label: 'Cancelado', color: Colors.red, bg: Colors.redDim };
+    case 'orcamento':
+    default:
+      return { label: 'Em analise', color: Colors.yellow, bg: Colors.yellowDim };
+  }
+}
 
 export default function VendasScreen() {
   const [busca, setBusca] = useState('');
 
-  const pedidos = [
-    { num: '#4821', cli: 'Alpha Ltda', valor: 'R$ 12.540', status: 'Aprovado', sc: Colors.green, sd: Colors.greenDim, data: '30/05' },
-    { num: '#4820', cli: 'Beta S.A.', valor: 'R$ 8.200', status: 'Em analise', sc: Colors.yellow, sd: Colors.yellowDim, data: '29/05' },
-    { num: '#4819', cli: 'Gama Eireli', valor: 'R$ 34.800', status: 'Aprovado', sc: Colors.green, sd: Colors.greenDim, data: '29/05' },
-    { num: '#4818', cli: 'Delta Corp', valor: 'R$ 5.100', status: 'Cancelado', sc: Colors.red, sd: Colors.redDim, data: '28/05' },
-    { num: '#4817', cli: 'Epsilon Ind.', valor: 'R$ 19.700', status: 'Entregue', sc: Colors.teal, sd: Colors.tealDim, data: '27/05' },
-  ].filter((p) => p.cli.toLowerCase().includes(busca.toLowerCase()) || p.num.includes(busca));
+  const {
+    data: pedidosRaw,
+    isLoading,
+    isError,
+    refetch,
+    isRefetching,
+  } = useQuery<Pedido[]>({
+    queryKey: ['vendas', 'pedidos'],
+    queryFn: async () => {
+      const res = await vendasApi.getPedidos({ limit: 30 });
+      return Array.isArray(res) ? res : res?.data ?? [];
+    },
+    retry: 1,
+  });
 
-  const funil = [
-    { label: 'Prospeccao', value: 420, color: Colors.mutedLight },
-    { label: 'Qualificacao', value: 280, color: Colors.accent },
-    { label: 'Proposta', value: 140, color: Colors.yellow },
-    { label: 'Negociacao', value: 72, color: Colors.orange },
-    { label: 'Fechamento', value: 38, color: Colors.green },
-  ];
+  const {
+    data: metasData,
+    isLoading: metasLoading,
+    refetch: refetchMetas,
+  } = useQuery({
+    queryKey: ['vendas', 'metas'],
+    queryFn: () => vendasApi.getMetas(),
+    retry: 1,
+  });
+
+  const {
+    data: funilData,
+    isLoading: funilLoading,
+    refetch: refetchFunil,
+  } = useQuery({
+    queryKey: ['vendas', 'funil'],
+    queryFn: () => vendasApi.getFunil(),
+    retry: 1,
+  });
+
+  const pedidos = (pedidosRaw ?? []).filter(
+    (p) =>
+      !busca ||
+      p.cliente_nome?.toLowerCase().includes(busca.toLowerCase()) ||
+      String(p.numero ?? p.id).includes(busca)
+  );
+
+  const funil = Array.isArray(funilData) ? funilData : (funilData as any)?.data ?? [];
+  const metas = Array.isArray(metasData) ? metasData : (metasData as any)?.data ?? [];
+
+  const handleRefresh = () => {
+    refetch();
+    refetchMetas();
+    refetchFunil();
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={['top']}>
@@ -36,45 +104,73 @@ export default function VendasScreen() {
         }
       />
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingTop: 8, gap: 14 }}>
-        {/* KPIs */}
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <KPICard title="Faturado/Mes" value="R$ 892K" change="+11%" up={true} color={Colors.green} spark={[60, 75, 70, 88, 82, 95, 90, 105, 98, 112]} style={{ flex: 1 }} />
-          <KPICard title="Meta" value="82%" sub="R$ 1,09M meta" color={Colors.accent} spark={[50, 55, 60, 62, 65, 68, 72, 75, 78, 82]} style={{ flex: 1 }} />
-        </View>
-
-        {/* Meta progress */}
-        <Card style={{ padding: 14 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-            <Text style={{ fontSize: 13, color: Colors.textSoft }}>Meta mensal — Junho</Text>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.accent }}>82%</Text>
-          </View>
-          <View style={{ height: 8, backgroundColor: Colors.surface, borderRadius: 8, overflow: 'hidden' }}>
-            <View style={{ width: '82%', height: '100%', borderRadius: 8, backgroundColor: Colors.accent }} />
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-            <Text style={{ fontSize: 11, color: Colors.muted }}>R$ 892.000 realizado</Text>
-            <Text style={{ fontSize: 11, color: Colors.muted }}>R$ 1.090.000 meta</Text>
-          </View>
-        </Card>
-
-        {/* Funil */}
-        <View>
-          <SectionLabel text="Funil de Vendas" />
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
-            {funil.map((f, i) => (
-              <View key={i} style={{ padding: 10, paddingHorizontal: 14, borderBottomWidth: i < funil.length - 1 ? 1 : 0, borderBottomColor: Colors.border }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-                  <Text style={{ fontSize: 12, color: Colors.textSoft }}>{f.label}</Text>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: f.color }}>{f.value}</Text>
-                </View>
-                <View style={{ height: 5, backgroundColor: Colors.surface, borderRadius: 4, overflow: 'hidden' }}>
-                  <View style={{ width: `${(f.value / 420) * 100}%`, height: '100%', backgroundColor: f.color, borderRadius: 4 }} />
-                </View>
-              </View>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 14, paddingTop: 8, gap: 14 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={handleRefresh}
+            tintColor={Colors.accent}
+            colors={[Colors.accent]}
+          />
+        }
+      >
+        {/* Metas */}
+        {!metasLoading && metas.length > 0 && (
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {metas.slice(0, 2).map((m: any, i: number) => (
+              <KPICard
+                key={i}
+                title={m.vendedor_nome ?? `Meta ${i + 1}`}
+                value={`${Math.round(m.percentual ?? 0)}%`}
+                sub={`${fmtCurrency(m.realizado)} / ${fmtCurrency(m.meta_valor)}`}
+                color={Colors.green}
+                style={{ flex: 1 }}
+              />
             ))}
-          </Card>
-        </View>
+          </View>
+        )}
+
+        {/* Funil de Vendas */}
+        {!funilLoading && funil.length > 0 && (
+          <View>
+            <SectionLabel text="Funil de Vendas" />
+            <Card style={{ padding: 0, overflow: 'hidden' }}>
+              {funil.map((f: any, i: number) => {
+                const maxVal = funil[0]?.quantidade ?? 1;
+                return (
+                  <View
+                    key={i}
+                    style={{
+                      padding: 10,
+                      paddingHorizontal: 14,
+                      borderBottomWidth: i < funil.length - 1 ? 1 : 0,
+                      borderBottomColor: Colors.border,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <Text style={{ fontSize: 12, color: Colors.textSoft }}>{f.etapa ?? f.label}</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.accent }}>
+                        {f.quantidade ?? 0}
+                      </Text>
+                    </View>
+                    <View style={{ height: 5, backgroundColor: Colors.surface, borderRadius: 4, overflow: 'hidden' }}>
+                      <View
+                        style={{
+                          width: `${((f.quantidade ?? 0) / maxVal) * 100}%`,
+                          height: '100%',
+                          backgroundColor: Colors.accent,
+                          borderRadius: 4,
+                        }}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+            </Card>
+          </View>
+        )}
 
         {/* Pedidos */}
         <View>
@@ -102,31 +198,60 @@ export default function VendasScreen() {
               style={{ flex: 1, fontSize: 13, color: Colors.text, padding: 0 }}
             />
           </View>
-          <Card style={{ padding: 0, overflow: 'hidden' }}>
-            {pedidos.map((p, i) => (
-              <View
-                key={i}
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: 12,
-                  paddingHorizontal: 14,
-                  borderBottomWidth: i < pedidos.length - 1 ? 1 : 0,
-                  borderBottomColor: Colors.border,
-                }}
-              >
-                <View>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.text }}>{p.num} — {p.cli}</Text>
-                  <Text style={{ fontSize: 11, color: Colors.muted, marginTop: 2 }}>{p.data}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.text }}>{p.valor}</Text>
-                  <StatusPill label={p.status} color={p.sc} bg={p.sd} />
-                </View>
-              </View>
-            ))}
-          </Card>
+
+          {isLoading ? (
+            <View style={{ height: 100, justifyContent: 'center', alignItems: 'center' }}>
+              <ActivityIndicator color={Colors.accent} />
+            </View>
+          ) : isError ? (
+            <Card style={{ padding: 16, alignItems: 'center' }}>
+              <Text style={{ color: Colors.red, fontSize: 13 }}>Falha ao carregar pedidos</Text>
+              <TouchableOpacity onPress={() => refetch()} style={{ marginTop: 8 }}>
+                <Text style={{ color: Colors.accent, fontSize: 12 }}>Tentar novamente</Text>
+              </TouchableOpacity>
+            </Card>
+          ) : pedidos.length === 0 ? (
+            <Card style={{ padding: 16, alignItems: 'center' }}>
+              <Text style={{ fontSize: 13, color: Colors.muted }}>
+                {busca ? 'Nenhum pedido encontrado' : 'Nenhum pedido cadastrado'}
+              </Text>
+            </Card>
+          ) : (
+            <Card style={{ padding: 0, overflow: 'hidden' }}>
+              {pedidos.slice(0, 20).map((p, i) => {
+                const st = statusPedido(p.status);
+                return (
+                  <View
+                    key={p.id}
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: 12,
+                      paddingHorizontal: 14,
+                      borderBottomWidth: i < Math.min(pedidos.length, 20) - 1 ? 1 : 0,
+                      borderBottomColor: Colors.border,
+                    }}
+                  >
+                    <View>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.text }}>
+                        #{p.numero ?? p.id} — {p.cliente_nome ?? 'Cliente'}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: Colors.muted, marginTop: 2 }}>
+                        {fmtDate(p.data_criacao)}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.text }}>
+                        {fmtCurrency(p.valor_total)}
+                      </Text>
+                      <StatusPill label={st.label} color={st.color} bg={st.bg} />
+                    </View>
+                  </View>
+                );
+              })}
+            </Card>
+          )}
         </View>
 
         <View style={{ height: 20 }} />
