@@ -4,12 +4,12 @@
     "slug": "zyntraaa",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.jpg",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "scheme": "zyntra",
     "splash": {
-      "image": "./assets/splash-icon.jpg",
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#090C14"
     },
@@ -27,7 +27,7 @@
       "package": "br.com.aluforce.zyntra",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.jpg",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#090C14"
       },
       "permissions": [
@@ -43,7 +43,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.jpg"
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
@@ -57,7 +57,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.jpg",
+          "icon": "./assets/notification-icon.png",
           "color": "#3B82F6",
           "sounds": []
         }
