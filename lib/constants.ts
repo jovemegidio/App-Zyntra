@@ -4,33 +4,38 @@ import type { Module } from '@/types';
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://aluforce.api.br/api';
 export const API_TIMEOUT = 30000;
 
-// Colors - Zyntra Design System
+// Colors - Zyntra Design System (modo claro — espelha o login web)
 export const Colors = {
-  bg: '#090C14',
-  surface: '#0F1520',
-  card: '#131A28',
-  card2: '#1A2236',
-  border: '#1E2A42',
-  borderLight: '#253350',
-  accent: '#3B82F6',
-  accentDim: 'rgba(59,130,246,0.18)',
-  accentGlow: 'rgba(59,130,246,0.10)',
-  text: '#EEF2FF',
-  textSoft: '#B8C4DC',
-  muted: '#5A6882',
-  mutedLight: '#8898B4',
-  green: '#22C55E',
-  greenDim: 'rgba(34,197,94,0.15)',
-  red: '#EF4444',
-  redDim: 'rgba(239,68,68,0.15)',
-  yellow: '#F59E0B',
-  yellowDim: 'rgba(245,158,11,0.15)',
-  purple: '#A855F7',
-  purpleDim: 'rgba(168,85,247,0.15)',
-  teal: '#14B8A6',
-  tealDim: 'rgba(20,184,166,0.15)',
-  orange: '#F97316',
-  orangeDim: 'rgba(249,115,22,0.15)',
+  // Fundos
+  bg: '#f3f5f9',
+  surface: '#eaecf3',
+  card: '#ffffff',
+  card2: '#f0f2f7',
+  // Bordas
+  border: '#dbe0ea',
+  borderLight: '#e8ecf3',
+  // Primária — azul-marinho corporativo
+  accent: '#19295e',
+  accentDim: 'rgba(25,41,94,0.10)',
+  accentGlow: 'rgba(25,41,94,0.06)',
+  // Textos
+  text: '#18213a',
+  textSoft: '#344060',
+  muted: '#60708c',
+  mutedLight: '#8898b4',
+  // Status
+  green: '#16a34a',
+  greenDim: 'rgba(22,163,74,0.12)',
+  red: '#dc2626',
+  redDim: 'rgba(220,38,38,0.10)',
+  yellow: '#d97706',
+  yellowDim: 'rgba(217,119,6,0.12)',
+  purple: '#7c3aed',
+  purpleDim: 'rgba(124,58,237,0.12)',
+  teal: '#0d9488',
+  tealDim: 'rgba(13,148,136,0.12)',
+  orange: '#ea580c',
+  orangeDim: 'rgba(234,88,12,0.12)',
 } as const;
 
 // Modules Configuration
@@ -118,6 +123,34 @@ export const STATUS_COLORS = {
   aprovacao: { color: Colors.yellow, bg: Colors.yellowDim },
   recebido: { color: Colors.teal, bg: Colors.tealDim },
 } as const;
+
+// Logos das empresas (require estático para Metro bundler)
+export const Logos = {
+  aluforceAzul:  require('../assets/logos/aluforce-azul.png'),
+  aluforceWhite: require('../assets/logos/aluforce-branco.png'),
+  laborAzul:     require('../assets/logos/labor-azul.png'),
+  laborWhite:    require('../assets/logos/labor-branco.png'),
+  energyAzul:    require('../assets/logos/energy-azul.png'),
+  energyWhite:   require('../assets/logos/energy-branco.png'),
+};
+
+// Configuração das empresas — espelha o JS do login web
+export const COMPANIES = {
+  aluforce: {
+    id: 'aluforce',
+    name: 'Aluforce',
+    emailDomain: 'aluforce.ind.br',
+    headline: 'Portal interno da Aluforce',
+    logo: Logos.aluforceAzul,
+  },
+  labor: {
+    id: 'labor',
+    name: 'Grupo Labor',
+    emailDomain: 'labor.com.br',
+    headline: 'Portal interno do Grupo Labor',
+    logo: Logos.laborAzul,
+  },
+};
 
 // App Info
 export const APP_VERSION = '1.0.0';
