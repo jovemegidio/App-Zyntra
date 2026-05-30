@@ -1,10 +1,10 @@
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Image } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { dashboardApi } from '@/lib/api';
-import { Colors, MODULES } from '@/lib/constants';
+import { Colors, MODULES, getAvatarUrl } from '@/lib/constants';
 import { Card, KPICard, SectionLabel, IconBell, ModuleIcon } from '@/components/ui';
 import type { DashboardKPIs, Atividade } from '@/types';
 
@@ -18,6 +18,26 @@ function getGreeting() {
 function getUserInitials(nome?: string | null) {
   if (!nome) return 'AD';
   return nome.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+}
+
+function UserAvatar({ avatar, foto, nome, size = 38 }: { avatar?: string; foto?: string; nome?: string; size?: number }) {
+  const url = getAvatarUrl(avatar || foto);
+  const initials = getUserInitials(nome);
+  const radius = size * 0.28;
+  if (url) {
+    return (
+      <Image
+        source={{ uri: url }}
+        style={{ width: size, height: size, borderRadius: radius, backgroundColor: Colors.surface }}
+        resizeMode="cover"
+      />
+    );
+  }
+  return (
+    <View style={{ width: size, height: size, borderRadius: radius, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontSize: size * 0.35, fontWeight: '700', color: '#fff' }}>{initials}</Text>
+    </View>
+  );
 }
 
 export default function HomeScreen() {
@@ -125,20 +145,9 @@ export default function HomeScreen() {
             >
               <IconBell size={18} color={Colors.mutedLight} />
             </TouchableOpacity>
-            <View
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 11,
-                backgroundColor: Colors.accent,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }}>
-                {getUserInitials(user?.nome)}
-              </Text>
-            </View>
+            <TouchableOpacity onPress={() => router.push('/(auth)/perfil')}>
+              <UserAvatar avatar={user?.avatar} foto={user?.foto} nome={user?.nome} size={38} />
+            </TouchableOpacity>
           </View>
         </View>
       </View>

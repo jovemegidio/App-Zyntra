@@ -6,12 +6,15 @@ export interface User {
   nome: string;
   email: string;
   role: 'admin' | 'usuario' | 'gestor' | 'vendedor' | 'consultoria';
-  is_admin: number; // 1 or 0
+  is_admin: number | boolean;
   setor?: string;
   apelido?: string;
   foto?: string;
-  avatar?: string;
-  areas: string[]; // ['vendas', 'rh', 'pcp', 'financeiro', 'nfe', 'compras', 'ti']
+  avatar?: string;        // caminho relativo ex: /avatars/Antonio.webp
+  telefone?: string;
+  bio?: string;
+  ultimo_login?: string;
+  areas: string[];
   status?: 'ativo' | 'inativo';
 }
 

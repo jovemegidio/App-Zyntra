@@ -152,6 +152,15 @@ export const COMPANIES = {
   },
 };
 
+// Converte caminho relativo de avatar (/avatars/Foo.webp) em URL absoluta
+export function getAvatarUrl(path?: string | null): string | null {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  // Remove sufixo /api da base para servir arquivos estáticos
+  const base = API_BASE_URL.replace(/\/api\/?$/, '');
+  return `${base}${path}`;
+}
+
 // App Info
 export const APP_VERSION = '1.0.0';
 export const APP_NAME = 'Zyntra';

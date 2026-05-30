@@ -61,18 +61,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isLoading: false,
         });
 
-        // Try to refresh user data from API in background
+        // Refresh em background: /me retorna o user diretamente (sem wrapper success/user)
         try {
           const profile = await authApi.getProfile();
-          if (profile.success && profile.user) {
-            await tokenStorage.setUserData(profile.user);
-            setState(prev => ({
-              ...prev,
-              user: profile.user,
-            }));
+          // Aceita resposta direta {id, nome, ...} OU wrapper {success, user}
+          const freshUser: User | null =
+            profile?.id ? (profile as User) :
+            profile?.user?.id ? (profile.user as User) :
+            null;
+          if (freshUser) {
+            await tokenStorage.setUserData(freshUser);
+            setState(prev => ({ ...prev, user: freshUser }));
           }
         } catch (error) {
-          // If API fails, keep using stored data
           console.log('Could not refresh user profile:', error);
         }
       } else {
@@ -127,12 +128,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = useCallback(async () => {
     try {
       const profile = await authApi.getProfile();
-      if (profile.success && profile.user) {
-        await tokenStorage.setUserData(profile.user);
-        setState(prev => ({
-          ...prev,
-          user: profile.user,
-        }));
+      const freshUser: User | null =
+        profile?.id ? (profile as User) :
+        profile?.user?.id ? (profile.user as User) :
+        null;
+      if (freshUser) {
+        await tokenStorage.setUserData(freshUser);
+        setState(prev => ({ ...prev, user: freshUser }));
       }
     } catch (error) {
       console.error('Error refreshing user:', error);
