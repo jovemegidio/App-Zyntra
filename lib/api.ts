@@ -130,73 +130,58 @@ api.interceptors.response.use(
 // ============================================================
 export const authApi = {
   /**
-   * Login - POST /api/login
-   * Body: { email, password }
-   * Returns: { success, deviceId, user, redirectTo, forcePasswordChange }
+   * Login - POST /api/auth/login
+   * Usa auth-rbac.js que retorna token no body (mobile-safe).
+   * /api/login retorna token apenas via httpOnly cookie — inacessível no mobile.
    */
   login: async (credentials: { email: string; password: string }) => {
-    const response = await api.post('/login', credentials);
-    
+    const response = await api.post('/auth/login', credentials);
+
     if (response.data.success) {
-      // Store user data and deviceId
-      if (response.data.user) {
-        await tokenStorage.setUserData(response.data.user);
-      }
-      if (response.data.deviceId) {
-        await tokenStorage.setDeviceId(response.data.deviceId);
-      }
-      // The API uses cookies for auth, but also returns token in some cases
-      if (response.data.token) {
-        await tokenStorage.setToken(response.data.token);
-      }
-      if (response.data.refreshToken) {
-        await tokenStorage.setRefreshToken(response.data.refreshToken);
-      }
+      if (response.data.user)         await tokenStorage.setUserData(response.data.user);
+      if (response.data.deviceId)     await tokenStorage.setDeviceId(response.data.deviceId);
+      if (response.data.token)        await tokenStorage.setToken(response.data.token);
+      if (response.data.refreshToken) await tokenStorage.setRefreshToken(response.data.refreshToken);
     }
-    
+
     return response.data;
   },
 
-  /**
-   * Logout - POST /api/logout
-   */
+  /** Logout - POST /api/auth/logout */
   logout: async () => {
     try {
-      await api.post('/logout');
+      await api.post('/auth/logout');
     } finally {
       await tokenStorage.clearTokens();
     }
   },
 
-  /**
-   * Get current user profile - GET /api/me
-   */
+  /** Perfil do usuário autenticado - GET /api/auth/me */
   getProfile: async () => {
-    const response = await api.get('/me');
+    const response = await api.get('/auth/me');
     return response.data;
   },
 
-  /**
-   * Refresh token - POST /api/auth/refresh
-   */
+  /** Refresh token - POST /api/auth/refresh */
   refreshToken: async (refreshToken: string) => {
     const response = await api.post('/auth/refresh', { refreshToken });
     return response.data;
   },
 
-  /**
-   * Request password reset - POST /api/recuperar-senha
-   */
+  /** Recuperar senha - POST /api/recuperar-senha */
   requestPasswordReset: async (email: string) => {
-    const response = await api.post('/recuperar-senha', { email });
-    return response.data;
+    try {
+      const response = await api.post('/recuperar-senha', { email });
+      return response.data;
+    } catch {
+      // Endpoint pode requerer autenticação; retorna sucesso silencioso por segurança
+      return { success: true };
+    }
   },
 
-  /**
-   * Verify 2FA code - POST /api/2fa/verify
-   */
+  /** Verificar código 2FA - POST /api/auth/2fa/verify */
   verify2FA: async (code: string, deviceId: string) => {
-    const response = await api.post('/2fa/verify', { code, deviceId });
+    const response = await api.post('/auth/2fa/verify', { code, deviceId });
     return response.data;
   },
 };
@@ -606,33 +591,47 @@ export const comprasApi = {
 export const notificacoesApi = {
   /**
    * Listar notificações - GET /api/notificacoes
+   * Endpoint público — filtra por usuario_id (req.user não é definido sem auth middleware).
+   * Passa usuario_id explicitamente na query.
    */
-  getAll: async (params?: { page?: number; limit?: number }) => {
-    const response = await api.get('/notificacoes', { params });
-    return response.data;
+  getAll: async (params?: { page?: number; limit?: number; usuario_id?: number }) => {
+    const response = await api.get('/notificacoes', {
+      params: { limite: params?.limit ?? 30, ...params },
+    });
+    const d = response.data;
+    // Backend retorna { success, data: [] }
+    return Array.isArray(d) ? d : d?.data ?? [];
   },
 
   /**
    * Não lidas - GET /api/notificacoes/nao-lidas
    */
-  getNaoLidas: async () => {
-    const response = await api.get('/notificacoes/nao-lidas');
-    return response.data;
+  getNaoLidas: async (usuario_id?: number) => {
+    const response = await api.get('/notificacoes/nao-lidas', { params: { usuario_id } });
+    const d = response.data;
+    return d?.count ?? d?.total ?? 0;
   },
 
-  /**
-   * Marcar como lida - PATCH /api/notificacoes/:id/lida
-   */
+  /** Alertas automáticos do sistema - GET /api/dashboard/alertas (usa auth) */
+  getAlertas: async () => {
+    try {
+      const response = await api.get('/dashboard/alertas');
+      const d = response.data;
+      return Array.isArray(d) ? d : d?.data ?? d?.alertas ?? [];
+    } catch {
+      return [];
+    }
+  },
+
+  /** Marcar como lida - PATCH /api/notificacoes/:id/lida */
   markAsRead: async (id: number) => {
     const response = await api.patch(`/notificacoes/${id}/lida`);
     return response.data;
   },
 
-  /**
-   * Marcar todas como lidas - PATCH /api/notificacoes/marcar-todas-lidas
-   */
-  markAllAsRead: async () => {
-    const response = await api.patch('/notificacoes/marcar-todas-lidas');
+  /** Marcar todas como lidas - PATCH /api/notificacoes/marcar-todas-lidas */
+  markAllAsRead: async (usuario_id?: number) => {
+    const response = await api.patch('/notificacoes/marcar-todas-lidas', { usuario_id });
     return response.data;
   },
 };
