@@ -1,0 +1,6 @@
+{
+  "name": "react-native-worklets",
+  "version": "0.0.1",
+  "description": "Stub package — satisfaz react-native-css-interop sem modulo nativo",
+  "main": "index.js"
+}
