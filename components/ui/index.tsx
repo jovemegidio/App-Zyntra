@@ -6,6 +6,7 @@ import {
   TextInput,
   ActivityIndicator,
   StyleSheet,
+  StyleProp,
   ViewStyle,
   TextStyle,
 } from 'react-native';
@@ -17,7 +18,7 @@ import { Colors } from '@/lib/constants';
 // ═══════════════════════════════════════════════════════════════
 interface CardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   onPress?: () => void;
 }
 
@@ -130,7 +131,7 @@ export function Input({
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
-        style={[styles.input, rightElement && { paddingRight: 48 }]}
+        style={[styles.input, rightElement ? { paddingRight: 48 } : undefined]}
       />
       {rightElement && <View style={styles.inputRight}>{rightElement}</View>}
     </View>
