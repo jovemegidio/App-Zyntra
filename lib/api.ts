@@ -461,6 +461,50 @@ export const pcpApi = {
     const response = await api.get('/pcp/setores');
     return response.data;
   },
+
+  // ── Apontamentos de Produção ────────────────────────────────
+
+  /** OPs disponíveis para apontamento - GET /api/pcp/apontamentos/ordens */
+  getOrdensParaApontamento: async (status?: string) => {
+    const response = await api.get('/pcp/apontamentos/ordens', { params: { status } });
+    const d = response.data;
+    return Array.isArray(d) ? d : d?.data ?? [];
+  },
+
+  /** Estatísticas do dia - GET /api/pcp/apontamentos/stats */
+  getApontamentosStats: async () => {
+    const response = await api.get('/pcp/apontamentos/stats');
+    return response.data;
+  },
+
+  /** Meus apontamentos - GET /api/pcp/apontamentos/meus */
+  getMeusApontamentos: async () => {
+    const response = await api.get('/pcp/apontamentos/meus');
+    const d = response.data;
+    return Array.isArray(d) ? d : d?.data ?? [];
+  },
+
+  /**
+   * Registrar apontamento - POST /api/pcp/apontamentos/chao
+   * (anti-duplicidade + suporte a colunas extras)
+   */
+  registrarApontamento: async (dados: {
+    tipo_atividade: string;
+    nome_atividade: string;
+    hora_inicio: string;
+    hora_fim: string;
+    duracao_segundos: number;
+    ordem_producao_id?: number | null;
+    produto_descricao?: string;
+    quantidade_produzida?: number;
+    quantidade_refugo?: number;
+    maquina?: string;
+    turno?: string;
+    observacoes?: string;
+  }) => {
+    const response = await api.post('/pcp/apontamentos/chao', dados);
+    return response.data;
+  },
 };
 
 // ============================================================
