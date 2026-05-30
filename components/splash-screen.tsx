@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, Animated, Easing, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, Animated, Easing, StyleSheet, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { APP_VERSION } from '@/lib/constants';
 
 // ─── Paleta do splash (variante escura — espelha o ícone do app) ───
@@ -12,44 +11,14 @@ const SPLASH = {
   lightDim: '#c3cbdc',
   blue: '#3b82f6',
   muted: '#6b7894',
-  ring: 'rgba(59,130,246,0.10)',
+  ring: 'rgba(59,130,246,0.14)',
 };
-
-const { width: SCREEN_W } = Dimensions.get('window');
-
-// ─── Gerador de path da engrenagem (cog) ───
-function buildGearPath(
-  cx: number,
-  cy: number,
-  teeth: number,
-  rOuter: number,
-  rInner: number,
-  toothRatio = 0.46,
-) {
-  const step = (Math.PI * 2) / teeth;
-  const half = step / 2;
-  const tTop = half * toothRatio;
-  const P = (r: number, a: number) =>
-    `${(cx + r * Math.cos(a)).toFixed(2)},${(cy + r * Math.sin(a)).toFixed(2)}`;
-  const pts: string[] = [];
-  for (let i = 0; i < teeth; i++) {
-    const c = i * step - Math.PI / 2;
-    pts.push(P(rInner, c - half));
-    pts.push(P(rOuter, c - tTop));
-    pts.push(P(rOuter, c + tTop));
-    pts.push(P(rInner, c + half));
-  }
-  return 'M' + pts.join(' L') + ' Z';
-}
-
-const GEAR_PATH = buildGearPath(80, 80, 9, 73, 55);
 
 export function SplashScreen() {
   // valores animados
   const logoScale = useRef(new Animated.Value(0.7)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
-  const gearSpin = useRef(new Animated.Value(0)).current;
-  const wordOpacity = useRef(new Animated.Value(0)).current;
+  const glowPulse = useRef(new Animated.Value(0)).current;
   const wordTranslate = useRef(new Animated.Value(14)).current;
   const taglineOpacity = useRef(new Animated.Value(0)).current;
   const progress = useRef(new Animated.Value(0)).current;
@@ -72,33 +41,32 @@ export function SplashScreen() {
       }),
     ]).start();
 
-    // rotação contínua e sutil da engrenagem
+    // pulsação sutil do glow atrás do logo
     Animated.loop(
-      Animated.timing(gearSpin, {
-        toValue: 1,
-        duration: 14000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
+      Animated.sequence([
+        Animated.timing(glowPulse, {
+          toValue: 1,
+          duration: 1600,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowPulse, {
+          toValue: 0,
+          duration: 1600,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
     ).start();
 
-    // wordmark
-    Animated.parallel([
-      Animated.timing(wordOpacity, {
-        toValue: 1,
-        duration: 500,
-        delay: 380,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(wordTranslate, {
-        toValue: 0,
-        duration: 600,
-        delay: 380,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
+    // leve subida do logo ao entrar
+    Animated.timing(wordTranslate, {
+      toValue: 0,
+      duration: 600,
+      delay: 120,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
 
     // tagline
     Animated.timing(taglineOpacity, {
@@ -127,9 +95,13 @@ export function SplashScreen() {
     }).start();
   }, []);
 
-  const spin = gearSpin.interpolate({
+  const glowScale = glowPulse.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    outputRange: [0.92, 1.08],
+  });
+  const glowOpacity = glowPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.5, 1],
   });
 
   const barWidth = progress.interpolate({
@@ -141,53 +113,29 @@ export function SplashScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* leve sobreposição superior para profundidade */}
-      <View style={styles.bgFill} />
-
       <View style={styles.center}>
-        {/* glow sutil atrás do logo */}
-        <View style={styles.glow} />
+        {/* glow pulsante atrás do logo */}
+        <Animated.View
+          style={[
+            styles.glow,
+            { opacity: glowOpacity, transform: [{ scale: glowScale }] },
+          ]}
+        />
 
         <Animated.View
           style={{
             opacity: logoOpacity,
-            transform: [{ scale: logoScale }],
+            transform: [{ scale: logoScale }, { translateY: wordTranslate }],
             alignItems: 'center',
             justifyContent: 'center',
-            width: 160,
-            height: 160,
           }}
         >
-          <Animated.View style={{ transform: [{ rotate: spin }] }}>
-            <Svg width={160} height={160} viewBox="0 0 160 160">
-              <Defs>
-                <LinearGradient id="gear" x1="0" y1="0" x2="0" y2="1">
-                  <Stop offset="0" stopColor="#ffffff" />
-                  <Stop offset="1" stopColor="#cbd5ea" />
-                </LinearGradient>
-              </Defs>
-              <Path d={GEAR_PATH} fill="url(#gear)" />
-              {/* anel interno escuro para destacar o Z */}
-              <Circle cx="80" cy="80" r="42" fill={SPLASH.bgBottom} />
-            </Svg>
-          </Animated.View>
-
-          {/* letra Z sobreposta (nítida, fora da rotação) */}
-          <View style={styles.zWrap} pointerEvents="none">
-            <Text style={styles.zLetter}>Z</Text>
-          </View>
-        </Animated.View>
-
-        {/* wordmark */}
-        <Animated.View
-          style={{
-            opacity: wordOpacity,
-            transform: [{ translateY: wordTranslate }],
-            marginTop: 26,
-            alignItems: 'center',
-          }}
-        >
-          <Text style={styles.wordmark}>ZYNTRA</Text>
+          <Image
+            source={require('@/assets/logos/zyntra-branco.png')}
+            style={styles.logo}
+            resizeMode="contain"
+            accessibilityLabel="Logo Zyntra"
+          />
         </Animated.View>
 
         <Animated.Text style={[styles.tagline, { opacity: taglineOpacity }]}>
@@ -216,11 +164,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bgFill: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: SPLASH.bgTop,
-    opacity: 0.0,
-  },
   center: {
     flex: 1,
     alignItems: 'center',
@@ -228,30 +171,16 @@ const styles = StyleSheet.create({
   },
   glow: {
     position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
     backgroundColor: SPLASH.ring,
     top: '50%',
-    marginTop: -190,
+    marginTop: -240,
   },
-  zWrap: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  zLetter: {
-    fontSize: 50,
-    fontWeight: '800',
-    color: SPLASH.light,
-    letterSpacing: 1,
-    marginTop: -2,
-  },
-  wordmark: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: SPLASH.light,
-    letterSpacing: 6,
+  logo: {
+    width: 300,
+    height: 116,
   },
   tagline: {
     marginTop: 10,
