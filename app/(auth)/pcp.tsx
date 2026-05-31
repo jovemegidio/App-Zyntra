@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  RefreshControl, ActivityIndicator, Alert, Modal, FlatList,
+  RefreshControl, ActivityIndicator, Alert, Modal, FlatList, useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pcpApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { Colors } from '@/lib/constants';
 import { Card, SectionLabel, ScreenHeader, StatusPill, KPICard } from '@/components/ui';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -58,6 +59,17 @@ function fmtHora(iso?: string) {
   catch { return '--:--'; }
 }
 
+function fmtClock(seg: number) {
+  const h = Math.floor(seg / 3600);
+  const m = Math.floor((seg % 3600) / 60);
+  const s = seg % 60;
+  return [h, m, s].map((n) => String(n).padStart(2, '0')).join(':');
+}
+
+function dataExtenso(d: Date) {
+  return d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+}
+
 function statusOP(s?: string): { label: string; color: string; bg: string } {
   const l = (s ?? '').toLowerCase();
   if (l.includes('conclu') || l.includes('finaliz')) return { label: 'Concluída', color: Colors.green, bg: Colors.greenDim };
@@ -81,16 +93,82 @@ function IconClock({ size = 16, color = '#60708c' }: { size?: number; color?: st
   return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"><Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" /><Path d="M12 7v5l3 3" stroke={color} strokeWidth="1.8" strokeLinecap="round" /></Svg>;
 }
 
-// ─── tipos de atividade ───────────────────────────────────────
-const TIPOS = [
-  { id: 'producao',   label: 'Produção',    color: Colors.green },
-  { id: 'setup',      label: 'Setup',       color: Colors.accent },
-  { id: 'parada',     label: 'Parada',      color: Colors.red },
-  { id: 'qualidade',  label: 'Qualidade',   color: Colors.purple },
-  { id: 'manutencao', label: 'Manutenção',  color: Colors.orange },
-];
+// ─── biblioteca de ícones (stroke 24x24) ─────────────────────
+const STROKE_ICONS: Record<string, string[]> = {
+  tools: [
+    'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
+  ],
+  alert: ['M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z', 'M12 9v4', 'M12 17h.01'],
+  food: ['M6 2v20', 'M4 2v6a2 2 0 0 0 4 0V2', 'M17 2c-2 0-3 2.2-3 5.5S15 12 17 12v10'],
+  box: ['M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z', 'M3.3 7 12 12l8.7-5', 'M12 22V12'],
+  bolt: ['M13 2 3 14h9l-1 8 10-12h-9l1-8z'],
+  gear: [
+    'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+    'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+  ],
+  xcircle: ['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z', 'M15 9l-6 6', 'M9 9l6 6'],
+  swap: ['M17 1l4 4-4 4', 'M3 11V9a4 4 0 0 1 4-4h14', 'M7 23l-4-4 4-4', 'M21 13v2a4 4 0 0 1-4 4H3'],
+  shield: ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z', 'M9 12l2 2 4-4'],
+  refresh: ['M23 4v6h-6', 'M1 20v-6h6', 'M3.51 9a9 9 0 0 1 14.85-3.36L23 10', 'M1 14l4.64 4.36A9 9 0 0 0 20.49 15'],
+  recycle: ['M1 4v6h6', 'M23 20v-6h-6', 'M20.49 9A9 9 0 0 0 5.64 5.64L1 10', 'M3.51 15a9 9 0 0 0 14.85 3.36L23 14'],
+  unlink: [
+    'M18.84 12.25 20.56 10.54a5 5 0 0 0-7.07-7.07l-1.72 1.71',
+    'M5.17 11.75 3.46 13.46a5 5 0 0 0 7.07 7.07l1.71-1.71',
+    'M8 2v2', 'M2 8h2', 'M16 22v-2', 'M22 16h-2',
+  ],
+  power: ['M18.36 6.64a9 9 0 1 1-12.73 0', 'M12 2v10'],
+  flame: ['M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z'],
+};
 
-const TURNOS = ['manha', 'tarde', 'noite'];
+function ActIcon({ name, size = 22, color = Colors.text }: { name: string; size?: number; color?: string }) {
+  if (name === 'play') {
+    return <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}><Path d="M5 3l14 9-14 9V3z" /></Svg>;
+  }
+  if (name === 'pause') {
+    return <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}><Path d="M6 4h4v16H6z" /><Path d="M14 4h4v16h-4z" /></Svg>;
+  }
+  const paths = STROKE_ICONS[name] ?? STROKE_ICONS.gear;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {paths.map((d, i) => (
+        <Path key={i} d={d} stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
+      ))}
+    </Svg>
+  );
+}
+
+// ─── catálogo de apontamentos (espelha relatorios/apontamentos do PCP) ─
+interface ApontTipo {
+  code: string;
+  nome: string;
+  color: string;
+  bg: string;
+  icon: string;
+  produz?: boolean;
+}
+const APONTAMENTOS: ApontTipo[] = [
+  { code: 'ST',  nome: 'Setup',              color: Colors.purple, bg: Colors.purpleDim, icon: 'tools' },
+  { code: '1',   nome: 'Início Produção',    color: Colors.green,  bg: Colors.greenDim,  icon: 'play', produz: true },
+  { code: '1A',  nome: 'Produção Irregular', color: Colors.orange, bg: Colors.orangeDim, icon: 'alert', produz: true },
+  { code: 'PR',  nome: 'Parada Refeição',    color: Colors.yellow, bg: Colors.yellowDim, icon: 'food' },
+  { code: 'PM',  nome: 'Parada Manutenção',  color: Colors.red,    bg: Colors.redDim,    icon: 'pause' },
+  { code: 'FM',  nome: 'Falta Mat. Prima',   color: Colors.orange, bg: Colors.orangeDim, icon: 'box' },
+  { code: 'ME',  nome: 'Manut. Elétrica',    color: Colors.yellow, bg: Colors.yellowDim, icon: 'bolt' },
+  { code: 'MM',  nome: 'Manut. Mecânica',    color: Colors.accent, bg: Colors.accentDim, icon: 'gear' },
+  { code: 'PCM', nome: 'Parada Corretiva',   color: Colors.red,    bg: Colors.redDim,    icon: 'xcircle' },
+  { code: 'TT',  nome: 'Troca de Turno',     color: Colors.accent, bg: Colors.accentDim, icon: 'swap' },
+  { code: 'MP',  nome: 'Manut. Preventiva',  color: Colors.green,  bg: Colors.greenDim,  icon: 'shield' },
+  { code: 'MC',  nome: 'Manut. Corretiva',   color: Colors.red,    bg: Colors.redDim,    icon: 'tools' },
+  { code: 'TB',  nome: 'Troca Bobina',       color: Colors.teal,   bg: Colors.tealDim,   icon: 'refresh' },
+  { code: 'TM',  nome: 'Troca Material',     color: Colors.purple, bg: Colors.purpleDim, icon: 'recycle' },
+  { code: 'QL',  nome: 'Quebra de Lance',    color: Colors.red,    bg: Colors.redDim,    icon: 'unlink' },
+  { code: 'QE',  nome: 'Queda Energia',      color: Colors.muted,  bg: Colors.surface,   icon: 'power' },
+  { code: 'AM',  nome: 'Aquec. Máquina',     color: Colors.orange, bg: Colors.orangeDim, icon: 'flame' },
+];
+const apontByCode = (code?: string) => APONTAMENTOS.find((a) => a.code === code);
+
+// fundo escuro do cronômetro (espelha o ícone/splash da marca)
+const TIMER_BG = '#0e1730';
 
 // ─── modal seleção de OP ─────────────────────────────────────
 function OPPickerModal({
@@ -171,44 +249,52 @@ function OPPickerModal({
 // ─── aba: novo apontamento ────────────────────────────────────
 function NovoApontamento({ ordens }: { ordens: OrdemProducao[] }) {
   const queryClient = useQueryClient();
+  const { width } = useWindowDimensions();
 
-  const [tipo, setTipo] = useState(TIPOS[0]);
-  const [opSelecionada, setOpSelecionada] = useState<OrdemProducao | null>(null);
-  const [showOpModal, setShowOpModal] = useState(false);
-  const [rodando, setRodando] = useState(false);
+  const [ativo, setAtivo] = useState<ApontTipo | null>(null);
   const [inicio, setInicio] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [opSelecionada, setOpSelecionada] = useState<OrdemProducao | null>(null);
+  const [showOpModal, setShowOpModal] = useState(false);
   const [qtdProd, setQtdProd] = useState('');
   const [qtdRefugo, setQtdRefugo] = useState('');
-  const [maquina, setMaquina] = useState('');
-  const [turno, setTurno] = useState(TURNOS[0]);
   const [obs, setObs] = useState('');
+  const [feito, setFeito] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const rodando = !!ativo && !!inicio;
 
   useEffect(() => {
     if (rodando) {
       timer.current = setInterval(() => setElapsed((p) => p + 1), 1000);
-    } else {
-      if (timer.current) clearInterval(timer.current);
+    } else if (timer.current) {
+      clearInterval(timer.current);
     }
     return () => { if (timer.current) clearInterval(timer.current); };
   }, [rodando]);
 
+  // grade responsiva (mais colunas em tablet/paisagem)
+  const hPad = 14;
+  const gap = 8;
+  const cols = width >= 1024 ? 6 : width >= 680 ? 5 : 4;
+  const tileW = Math.floor((width - hPad * 2 - gap * (cols - 1)) / cols);
+
+  const reset = useCallback(() => {
+    setAtivo(null); setInicio(null); setElapsed(0);
+    setQtdProd(''); setQtdRefugo(''); setObs(''); setOpSelecionada(null);
+  }, []);
+
   const mutation = useMutation({
     mutationFn: pcpApi.registrarApontamento,
-    onSuccess: (data) => {
-      if (data?.success) {
-        Alert.alert('Apontamento registrado!', `ID #${data.id} salvo com sucesso.`);
+    onSuccess: (data, vars) => {
+      if (data?.success !== false) {
+        const code = apontByCode(vars.tipo_atividade)?.code ?? vars.tipo_atividade;
+        setFeito(`Apontamento ${code} registrado!`);
+        setTimeout(() => setFeito(null), 4000);
+        Alert.alert('Apontamento registrado!', `${vars.nome_atividade} salvo com sucesso.`);
         queryClient.invalidateQueries({ queryKey: ['pcp', 'meus-apontamentos'] });
         queryClient.invalidateQueries({ queryKey: ['pcp', 'stats'] });
-        // reset
-        setRodando(false);
-        setInicio(null);
-        setElapsed(0);
-        setQtdProd('');
-        setQtdRefugo('');
-        setObs('');
-        setOpSelecionada(null);
+        reset();
       } else {
         Alert.alert('Erro', data?.message ?? 'Não foi possível salvar o apontamento.');
       }
@@ -216,26 +302,21 @@ function NovoApontamento({ ordens }: { ordens: OrdemProducao[] }) {
     onError: () => Alert.alert('Erro', 'Falha na conexão. Tente novamente.'),
   });
 
-  const handleToggle = () => {
-    if (!rodando) {
-      setInicio(new Date());
-      setElapsed(0);
-      setRodando(true);
-    } else {
-      setRodando(false);
-    }
+  const iniciar = (a: ApontTipo) => {
+    if (rodando) return;
+    setFeito(null);
+    setAtivo(a);
+    setInicio(new Date());
+    setElapsed(0);
   };
 
-  const handleRegistrar = () => {
-    if (!inicio) {
-      Alert.alert('Atenção', 'Inicie o cronômetro antes de registrar.');
-      return;
-    }
+  const pararRegistrar = () => {
+    if (!ativo || !inicio) return;
     const fim = new Date();
     const durSeg = Math.round((fim.getTime() - inicio.getTime()) / 1000);
     mutation.mutate({
-      tipo_atividade: tipo.id,
-      nome_atividade: tipo.label,
+      tipo_atividade: ativo.code,
+      nome_atividade: ativo.nome,
       hora_inicio: inicio.toISOString(),
       hora_fim: fim.toISOString(),
       duracao_segundos: durSeg,
@@ -243,190 +324,142 @@ function NovoApontamento({ ordens }: { ordens: OrdemProducao[] }) {
       produto_descricao: opSelecionada?.produto_nome,
       quantidade_produzida: qtdProd ? Number(qtdProd) : 0,
       quantidade_refugo: qtdRefugo ? Number(qtdRefugo) : 0,
-      maquina: maquina || undefined,
-      turno,
       observacoes: obs || undefined,
     });
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 14, gap: 16 }} keyboardShouldPersistTaps="handled">
-      {/* Tipo de atividade */}
-      <View>
-        <SectionLabel text="Tipo de Atividade" />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {TIPOS.map((t) => (
-            <TouchableOpacity
-              key={t.id}
-              onPress={() => setTipo(t)}
-              style={{
-                paddingHorizontal: 16, paddingVertical: 9, borderRadius: 10,
-                backgroundColor: tipo.id === t.id ? t.color : Colors.card,
-                borderWidth: 1,
-                borderColor: tipo.id === t.id ? t.color : Colors.border,
-              }}
-            >
-              <Text style={{ fontSize: 13, fontWeight: '600', color: tipo.id === t.id ? '#fff' : Colors.textSoft }}>{t.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Cronômetro */}
-      <Card style={{ alignItems: 'center', padding: 24, gap: 16 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <IconClock size={18} color={rodando ? tipo.color : Colors.muted} />
-          <Text style={{ fontSize: 42, fontWeight: '800', color: rodando ? tipo.color : Colors.text, letterSpacing: -1 }}>
-            {fmtDuracao(elapsed)}
-          </Text>
+    <ScrollView contentContainerStyle={{ padding: hPad, paddingBottom: 40, gap: 16 }} keyboardShouldPersistTaps="handled">
+      {/* cabeçalho */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <IconClock size={18} color={Colors.accent} />
+          <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.text }}>Registro de Tempo</Text>
         </View>
-        {inicio && (
-          <Text style={{ fontSize: 12, color: Colors.muted }}>
-            Início: {fmtHora(inicio.toISOString())}
-          </Text>
-        )}
-        <TouchableOpacity
-          onPress={handleToggle}
-          style={{
-            width: 72, height: 72, borderRadius: 36,
-            backgroundColor: rodando ? Colors.red : tipo.color,
-            alignItems: 'center', justifyContent: 'center',
-            shadowColor: rodando ? Colors.red : tipo.color,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
-          }}
-        >
-          {rodando ? <IconStop size={26} color="#fff" /> : <IconPlay size={26} color="#fff" />}
-        </TouchableOpacity>
-        <Text style={{ fontSize: 12, color: Colors.muted }}>
-          {rodando ? 'Toque para parar' : inicio ? 'Retomar' : 'Iniciar cronômetro'}
+        <Text style={{ fontSize: 11.5, color: Colors.muted, fontWeight: '500', textTransform: 'capitalize' }}>
+          {dataExtenso(new Date())}
         </Text>
-      </Card>
-
-      {/* Selecionar OP */}
-      <View>
-        <SectionLabel text="Ordem de Produção (opcional)" />
-        <TouchableOpacity
-          onPress={() => setShowOpModal(true)}
-          style={{
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-            padding: 14, backgroundColor: Colors.card, borderRadius: 10,
-            borderWidth: 1, borderColor: opSelecionada ? tipo.color : Colors.border,
-          }}
-        >
-          {opSelecionada ? (
-            <View>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.text }}>{opSelecionada.codigo ?? `OP #${opSelecionada.id}`}</Text>
-              <Text style={{ fontSize: 12, color: Colors.muted, marginTop: 1 }}>{opSelecionada.produto_nome}</Text>
-            </View>
-          ) : (
-            <Text style={{ fontSize: 14, color: Colors.muted }}>Selecionar OP...</Text>
-          )}
-          <Text style={{ fontSize: 20, color: Colors.muted }}>›</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Quantidades */}
-      <View>
-        <SectionLabel text="Quantidades" />
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          {[
-            { label: 'Produzido', value: qtdProd, setter: setQtdProd, color: Colors.green },
-            { label: 'Refugo', value: qtdRefugo, setter: setQtdRefugo, color: Colors.red },
-          ].map((f) => (
-            <View key={f.label} style={{ flex: 1, gap: 5 }}>
-              <Text style={{ fontSize: 12.5, fontWeight: '500', color: Colors.text }}>{f.label}</Text>
-              <View style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 9, paddingHorizontal: 12, height: 46, justifyContent: 'center' }}>
-                <TextInput
-                  value={f.value}
-                  onChangeText={f.setter}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor={Colors.muted}
-                  style={{ fontSize: 16, color: f.color, fontWeight: '600', padding: 0 }}
-                />
-              </View>
-            </View>
-          ))}
+      {/* cronômetro */}
+      <View style={{ backgroundColor: TIMER_BG, borderRadius: 18, padding: 24, alignItems: 'center', gap: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' }}>
+          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: rodando ? (ativo?.color ?? Colors.green) : 'rgba(255,255,255,0.45)' }} />
+          <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1, color: rodando ? '#fff' : 'rgba(255,255,255,0.6)' }}>
+            {rodando ? 'EM ANDAMENTO' : 'AGUARDANDO'}
+          </Text>
         </View>
+        <Text style={{ fontSize: 52, fontWeight: '800', color: '#fff', letterSpacing: 1, fontVariant: ['tabular-nums'] }}>
+          {fmtClock(elapsed)}
+        </Text>
+        {rodando && ativo ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ width: 24, height: 24, borderRadius: 7, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+              <ActIcon name={ativo.icon} size={14} color="#fff" />
+            </View>
+            <Text style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>{ativo.nome} • {ativo.code}</Text>
+          </View>
+        ) : (
+          <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Toque em uma atividade para iniciar</Text>
+        )}
+
+        {rodando && (
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+            <TouchableOpacity onPress={reset} style={{ paddingHorizontal: 18, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.10)' }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.85)' }}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={pararRegistrar} disabled={mutation.isPending} style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 22, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.green }}>
+              {mutation.isPending ? <ActivityIndicator color="#fff" size="small" /> : <IconStop size={16} color="#fff" />}
+              <Text style={{ fontSize: 14.5, fontWeight: '800', color: '#fff' }}>Parar e registrar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
-      {/* Turno e Máquina */}
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <View style={{ flex: 1 }}>
-          <SectionLabel text="Turno" />
-          <View style={{ flexDirection: 'row', backgroundColor: Colors.surface, borderRadius: 9, padding: 3, gap: 3 }}>
-            {TURNOS.map((t) => (
-              <TouchableOpacity
-                key={t}
-                onPress={() => setTurno(t)}
-                style={{
-                  flex: 1, paddingVertical: 7, borderRadius: 7, alignItems: 'center',
-                  backgroundColor: turno === t ? Colors.card : 'transparent',
-                }}
-              >
-                <Text style={{ fontSize: 12, fontWeight: '600', color: turno === t ? Colors.text : Colors.muted, textTransform: 'capitalize' }}>{t}</Text>
-              </TouchableOpacity>
-            ))}
+      {feito && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.greenDim, borderRadius: 10, padding: 12 }}>
+          <IconCheck size={16} color={Colors.green} />
+          <Text style={{ fontSize: 13.5, fontWeight: '700', color: Colors.green }}>{feito}</Text>
+        </View>
+      )}
+
+      {/* detalhes opcionais (em andamento) */}
+      {rodando && ativo && (
+        <View style={{ gap: 12 }}>
+          <SectionLabel text="Detalhes (opcional)" />
+          <TouchableOpacity
+            onPress={() => setShowOpModal(true)}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, backgroundColor: Colors.card, borderRadius: 10, borderWidth: 1, borderColor: opSelecionada ? ativo.color : Colors.border }}
+          >
+            {opSelecionada ? (
+              <View>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.text }}>{opSelecionada.codigo ?? `OP #${opSelecionada.id}`}</Text>
+                <Text style={{ fontSize: 12, color: Colors.muted, marginTop: 1 }}>{opSelecionada.produto_nome}</Text>
+              </View>
+            ) : (
+              <Text style={{ fontSize: 14, color: Colors.muted }}>Vincular Ordem de Produção...</Text>
+            )}
+            <Text style={{ fontSize: 20, color: Colors.muted }}>›</Text>
+          </TouchableOpacity>
+
+          {ativo.produz && (
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {[
+                { label: 'Produzido', value: qtdProd, setter: setQtdProd, color: Colors.green },
+                { label: 'Refugo', value: qtdRefugo, setter: setQtdRefugo, color: Colors.red },
+              ].map((f) => (
+                <View key={f.label} style={{ flex: 1, gap: 5 }}>
+                  <Text style={{ fontSize: 12.5, fontWeight: '500', color: Colors.text }}>{f.label}</Text>
+                  <View style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 9, paddingHorizontal: 12, height: 46, justifyContent: 'center' }}>
+                    <TextInput value={f.value} onChangeText={f.setter} keyboardType="numeric" placeholder="0" placeholderTextColor={Colors.muted} style={{ fontSize: 16, color: f.color, fontWeight: '600', padding: 0 }} />
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <View style={{ backgroundColor: Colors.card, borderRadius: 9, borderWidth: 1, borderColor: Colors.border, padding: 12 }}>
+            <TextInput value={obs} onChangeText={setObs} placeholder="Observações..." placeholderTextColor={Colors.muted} multiline style={{ fontSize: 14, color: Colors.text, minHeight: 56, textAlignVertical: 'top', padding: 0 }} />
           </View>
         </View>
-      </View>
+      )}
 
+      {/* grade de apontamentos */}
       <View>
-        <SectionLabel text="Máquina / Equipamento" />
-        <View style={{ backgroundColor: Colors.card, borderRadius: 9, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 12, height: 44, justifyContent: 'center' }}>
-          <TextInput
-            value={maquina}
-            onChangeText={setMaquina}
-            placeholder="Ex: Extrusora 01, Torno CNC..."
-            placeholderTextColor={Colors.muted}
-            style={{ fontSize: 14, color: Colors.text, padding: 0 }}
-          />
+        <SectionLabel text="Selecione o Apontamento" />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
+          {APONTAMENTOS.map((a) => {
+            const isActive = ativo?.code === a.code;
+            const disabled = rodando && !isActive;
+            return (
+              <TouchableOpacity
+                key={a.code}
+                onPress={() => iniciar(a)}
+                disabled={rodando}
+                activeOpacity={0.7}
+                style={{
+                  width: tileW,
+                  paddingVertical: 12,
+                  paddingHorizontal: 4,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  gap: 7,
+                  backgroundColor: isActive ? a.bg : Colors.card,
+                  borderWidth: 1.5,
+                  borderColor: isActive ? a.color : Colors.border,
+                  opacity: disabled ? 0.4 : 1,
+                }}
+              >
+                <View style={{ width: 40, height: 40, borderRadius: 11, backgroundColor: a.bg, alignItems: 'center', justifyContent: 'center' }}>
+                  <ActIcon name={a.icon} size={20} color={a.color} />
+                </View>
+                <Text numberOfLines={2} style={{ fontSize: 10.5, fontWeight: '600', color: Colors.text, textAlign: 'center', lineHeight: 13 }}>{a.nome}</Text>
+                <Text style={{ fontSize: 10, fontWeight: '800', color: Colors.muted, letterSpacing: 0.5 }}>{a.code}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
-
-      {/* Observações */}
-      <View>
-        <SectionLabel text="Observações" />
-        <View style={{ backgroundColor: Colors.card, borderRadius: 9, borderWidth: 1, borderColor: Colors.border, padding: 12 }}>
-          <TextInput
-            value={obs}
-            onChangeText={setObs}
-            placeholder="Anotações adicionais sobre o apontamento..."
-            placeholderTextColor={Colors.muted}
-            multiline
-            numberOfLines={3}
-            style={{ fontSize: 14, color: Colors.text, minHeight: 72, textAlignVertical: 'top', padding: 0 }}
-          />
-        </View>
-      </View>
-
-      {/* Botão registrar */}
-      <TouchableOpacity
-        onPress={handleRegistrar}
-        disabled={mutation.isPending || !inicio}
-        style={{
-          height: 50, borderRadius: 10,
-          backgroundColor: !inicio ? Colors.surface : tipo.color,
-          flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-          opacity: mutation.isPending ? 0.7 : 1,
-          shadowColor: !inicio ? 'transparent' : tipo.color,
-          shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 4,
-        }}
-      >
-        {mutation.isPending ? (
-          <ActivityIndicator color="#fff" size="small" />
-        ) : (
-          <>
-            <IconCheck size={18} color="#fff" />
-            <Text style={{ fontSize: 16, fontWeight: '700', color: inicio ? '#fff' : Colors.muted }}>
-              Registrar Apontamento
-            </Text>
-          </>
-        )}
-      </TouchableOpacity>
-
-      <View style={{ height: 30 }} />
 
       <OPPickerModal
         visible={showOpModal}
@@ -446,8 +479,12 @@ function MeusApontamentos() {
     retry: 1,
   });
 
-  const tipoConfig = (id?: string) =>
-    TIPOS.find((t) => t.id === id) ?? { color: Colors.muted, label: id ?? 'Atividade' };
+  const tipoConfig = (id?: string) => {
+    const a = apontByCode(id);
+    return a
+      ? { color: a.color, label: `${a.nome} • ${a.code}` }
+      : { color: Colors.muted, label: id ?? 'Atividade' };
+  };
 
   return (
     <ScrollView
@@ -511,6 +548,8 @@ type TabId = 'ordens' | 'apontar' | 'historico';
 
 export default function PCPScreen() {
   const [tab, setTab] = useState<TabId>('ordens');
+  const { user } = useAuth();
+  const isAdmin = !!user?.is_admin || user?.role === 'admin' || user?.role === 'gestor';
 
   const {
     data: ordens = [], isLoading: ordensLoading, refetch: refetchOrdens, isRefetching: ordensRefetching,
@@ -536,29 +575,31 @@ export default function PCPScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={['top']}>
       <ScreenHeader title="PCP — Apontamentos" onBack={() => router.back()} />
 
-      {/* KPIs */}
-      <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingBottom: 10 }}>
-        <KPICard
-          title="Hoje"
-          value={String((stats as any)?.apontamentos_hoje ?? '--')}
-          sub="apontamentos"
-          color={Colors.accent}
-          style={{ flex: 1 }}
-        />
-        <KPICard
-          title="OPs Ativas"
-          value={String(ordens.length)}
-          color={Colors.yellow}
-          style={{ flex: 1 }}
-        />
-        <KPICard
-          title="Produzido"
-          value={String((stats as any)?.quantidade_total ?? '--')}
-          sub={(stats as any)?.unidade ?? 'un'}
-          color={Colors.green}
-          style={{ flex: 1 }}
-        />
-      </View>
+      {/* KPIs — visíveis apenas para administradores/gestores */}
+      {isAdmin && (
+        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingBottom: 10 }}>
+          <KPICard
+            title="Hoje"
+            value={String((stats as any)?.apontamentos_hoje ?? '--')}
+            sub="apontamentos"
+            color={Colors.accent}
+            style={{ flex: 1 }}
+          />
+          <KPICard
+            title="OPs Ativas"
+            value={String(ordens.length)}
+            color={Colors.yellow}
+            style={{ flex: 1 }}
+          />
+          <KPICard
+            title="Produzido"
+            value={String((stats as any)?.quantidade_total ?? '--')}
+            sub={(stats as any)?.unidade ?? 'un'}
+            color={Colors.green}
+            style={{ flex: 1 }}
+          />
+        </View>
+      )}
 
       {/* Tabs */}
       <View style={{ flexDirection: 'row', marginHorizontal: 14, backgroundColor: Colors.surface, borderRadius: 10, padding: 3, gap: 3, marginBottom: 4 }}>

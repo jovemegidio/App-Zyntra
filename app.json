@@ -3,7 +3,7 @@
     "name": "Zyntra",
     "slug": "zyntraaa",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#f3f5f9"
+      "backgroundColor": "#090C14"
     },
     "ios": {
       "supportsTablet": true,
