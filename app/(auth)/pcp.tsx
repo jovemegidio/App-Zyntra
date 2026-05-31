@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pcpApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { Colors } from '@/lib/constants';
 import { Card, SectionLabel, ScreenHeader, StatusPill, KPICard } from '@/components/ui';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -547,6 +548,8 @@ type TabId = 'ordens' | 'apontar' | 'historico';
 
 export default function PCPScreen() {
   const [tab, setTab] = useState<TabId>('ordens');
+  const { user } = useAuth();
+  const isAdmin = !!user?.is_admin || user?.role === 'admin' || user?.role === 'gestor';
 
   const {
     data: ordens = [], isLoading: ordensLoading, refetch: refetchOrdens, isRefetching: ordensRefetching,
@@ -572,29 +575,31 @@ export default function PCPScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={['top']}>
       <ScreenHeader title="PCP — Apontamentos" onBack={() => router.back()} />
 
-      {/* KPIs */}
-      <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingBottom: 10 }}>
-        <KPICard
-          title="Hoje"
-          value={String((stats as any)?.apontamentos_hoje ?? '--')}
-          sub="apontamentos"
-          color={Colors.accent}
-          style={{ flex: 1 }}
-        />
-        <KPICard
-          title="OPs Ativas"
-          value={String(ordens.length)}
-          color={Colors.yellow}
-          style={{ flex: 1 }}
-        />
-        <KPICard
-          title="Produzido"
-          value={String((stats as any)?.quantidade_total ?? '--')}
-          sub={(stats as any)?.unidade ?? 'un'}
-          color={Colors.green}
-          style={{ flex: 1 }}
-        />
-      </View>
+      {/* KPIs — visíveis apenas para administradores/gestores */}
+      {isAdmin && (
+        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingBottom: 10 }}>
+          <KPICard
+            title="Hoje"
+            value={String((stats as any)?.apontamentos_hoje ?? '--')}
+            sub="apontamentos"
+            color={Colors.accent}
+            style={{ flex: 1 }}
+          />
+          <KPICard
+            title="OPs Ativas"
+            value={String(ordens.length)}
+            color={Colors.yellow}
+            style={{ flex: 1 }}
+          />
+          <KPICard
+            title="Produzido"
+            value={String((stats as any)?.quantidade_total ?? '--')}
+            sub={(stats as any)?.unidade ?? 'un'}
+            color={Colors.green}
+            style={{ flex: 1 }}
+          />
+        </View>
+      )}
 
       {/* Tabs */}
       <View style={{ flexDirection: 'row', marginHorizontal: 14, backgroundColor: Colors.surface, borderRadius: 10, padding: 3, gap: 3, marginBottom: 4 }}>
