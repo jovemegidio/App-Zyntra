@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Image, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image, RefreshControl, ActivityIndicator, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -182,20 +182,22 @@ export default function PerfilScreen() {
           <View>
             <SectionLabel text="Preferencias" />
             <Card style={{ padding: 0, overflow: 'hidden' }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 13, paddingHorizontal: 16, borderBottomWidth: Platform.OS === 'ios' ? 1 : 0, borderBottomColor: Colors.border }}>
                 <View>
                   <Text style={{ fontSize: 14, color: Colors.textSoft }}>Notificacoes</Text>
                   <Text style={{ fontSize: 11, color: Colors.muted, marginTop: 1 }}>Alertas e atualizacoes</Text>
                 </View>
                 <Toggle value={notifOn} onToggle={() => setNotifOn(!notifOn)} />
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 13, paddingHorizontal: 16 }}>
-                <View>
-                  <Text style={{ fontSize: 14, color: Colors.textSoft }}>Face ID / Touch ID</Text>
-                  <Text style={{ fontSize: 11, color: Colors.muted, marginTop: 1 }}>Login biometrico</Text>
+              {Platform.OS === 'ios' && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 13, paddingHorizontal: 16 }}>
+                  <View>
+                    <Text style={{ fontSize: 14, color: Colors.textSoft }}>Face ID / Touch ID</Text>
+                    <Text style={{ fontSize: 11, color: Colors.muted, marginTop: 1 }}>Login biometrico</Text>
+                  </View>
+                  <Toggle value={bioOn} onToggle={handleBioToggle} />
                 </View>
-                <Toggle value={bioOn} onToggle={handleBioToggle} />
-              </View>
+              )}
             </Card>
           </View>
 
