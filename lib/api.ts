@@ -1,5 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from './secure-store';
 import { API_BASE_URL, API_TIMEOUT } from './constants';
 
 // Create axios instance — withCredentials removido: mobile usa Bearer token, não cookie
