@@ -474,6 +474,24 @@ export function IconBiometric({ size = 20, color = 'currentColor' }: IconProps) 
   );
 }
 
+export function IconClock({ size = 18, color = 'currentColor' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.7" />
+      <Path d="M12 7v5l3 2" stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function IconDocument({ size = 18, color = 'currentColor' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z" stroke={color} strokeWidth="1.7" strokeLinejoin="round" />
+      <Path d="M14 3v5h5M9 13h6M9 17h6" stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════
 // MODULE ICONS
 // ═══════════════════════════════════════════════════════════════
