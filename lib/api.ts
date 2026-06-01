@@ -415,6 +415,55 @@ export const rhApi = {
     const response = await api.get('/rh/ponto/hoje');
     return response.data;
   },
+
+  /**
+   * Meu histórico de ponto - GET /api/rh/ponto/historico
+   */
+  getHistoricoPonto: async (params?: { mes?: number; ano?: number }) => {
+    const response = await api.get('/rh/ponto/historico', { params });
+    return response.data;
+  },
+
+  /**
+   * Enviar atestado médico - POST /api/rh/atestados (multipart/form-data)
+   * Campos: arquivo (file), data_inicio, data_fim, tipo, observacoes
+   */
+  enviarAtestado: async (formData: FormData) => {
+    const response = await api.post('/rh/atestados', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  /**
+   * Meus atestados - GET /api/rh/atestados/meus
+   */
+  getMeusAtestados: async () => {
+    const response = await api.get('/rh/atestados/meus');
+    return response.data;
+  },
+
+  /**
+   * Minhas solicitações - GET /api/rh/solicitacoes/minhas
+   */
+  getMinhasSolicitacoes: async () => {
+    const response = await api.get('/rh/solicitacoes/minhas');
+    return response.data;
+  },
+
+  /**
+   * Criar solicitação - POST /api/rh/solicitacoes
+   * Tipos: ferias, adiantamento, documento, folga, outros
+   */
+  criarSolicitacao: async (dados: {
+    tipo: 'ferias' | 'adiantamento' | 'documento' | 'folga' | 'outros';
+    descricao: string;
+    data_inicio?: string;
+    data_fim?: string;
+  }) => {
+    const response = await api.post('/rh/solicitacoes', dados);
+    return response.data;
+  },
 };
 
 // ============================================================

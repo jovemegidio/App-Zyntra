@@ -10,17 +10,124 @@ import {
   Alert,
   TextInput,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/auth';
-import { Colors, COMPANIES, Logos } from '@/lib/constants';
+import { Colors, COMPANIES, Logos, getAvatarUrl } from '@/lib/constants';
 import { Button } from '@/components/ui';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
+import type { User } from '@/types';
+
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 // ─── tipos ────────────────────────────────────────────────────
 type TabType = 'email' | 'cpf';
 type CompanyKey = keyof typeof COMPANIES | 'neutral';
+
+// ─── overlay de boas-vindas ───────────────────────────────────
+function WelcomeOverlay({ user, visible }: { user: User | null; visible: boolean }) {
+  const scale = useRef(new Animated.Value(0.7)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const bgOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(bgOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, friction: 6, tension: 100, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!visible || !user) return null;
+
+  const displayName = user.apelido || user.nome?.split(' ')[0] || 'Colaborador';
+  const avatarUrl = getAvatarUrl(user.avatar || user.foto);
+  const initials = (user.nome || 'C').split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Bom dia';
+    if (h < 18) return 'Boa tarde';
+    return 'Boa noite';
+  })();
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: 0, left: 0, right: 0, bottom: 0,
+        width: SCREEN_W, height: SCREEN_H,
+        backgroundColor: 'rgba(15,22,45,0.88)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: bgOpacity,
+        zIndex: 999,
+      }}
+    >
+      <Animated.View
+        style={{
+          backgroundColor: Colors.card,
+          borderRadius: 22,
+          paddingVertical: 36,
+          paddingHorizontal: 40,
+          alignItems: 'center',
+          gap: 14,
+          width: SCREEN_W * 0.78,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.3,
+          shadowRadius: 24,
+          elevation: 20,
+          transform: [{ scale }],
+          opacity,
+        }}
+      >
+        {/* Avatar */}
+        {avatarUrl ? (
+          <Image
+            source={{ uri: avatarUrl }}
+            style={{ width: 80, height: 80, borderRadius: 20, backgroundColor: Colors.surface }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View
+            style={{
+              width: 80, height: 80, borderRadius: 20,
+              backgroundColor: Colors.accent,
+              alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 30, fontWeight: '700', color: '#fff' }}>{initials}</Text>
+          </View>
+        )}
+
+        {/* Saudação */}
+        <View style={{ alignItems: 'center', gap: 4 }}>
+          <Text style={{ fontSize: 13, color: Colors.muted, fontWeight: '500' }}>{greeting},</Text>
+          <Text style={{ fontSize: 24, fontWeight: '800', color: Colors.text, letterSpacing: -0.5, textAlign: 'center' }}>
+            {displayName}!
+          </Text>
+        </View>
+
+        <View
+          style={{
+            paddingVertical: 6,
+            paddingHorizontal: 16,
+            backgroundColor: Colors.greenDim,
+            borderRadius: 999,
+          }}
+        >
+          <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.green }}>
+            Acesso liberado ✓
+          </Text>
+        </View>
+      </Animated.View>
+    </Animated.View>
+  );
+}
 
 interface CompanyConfig {
   id: CompanyKey;
@@ -187,6 +294,7 @@ export default function LoginScreen() {
   const [canUseBiometrics, setCanUseBiometrics] = useState(false);
   const [success, setSuccess] = useState(false);
   const [company, setCompany] = useState<CompanyKey>('neutral');
+  const [welcomeUser, setWelcomeUser] = useState<User | null>(null);
 
   // fade animado ao trocar empresa
   const logoOpacity = useRef(new Animated.Value(1)).current;
@@ -238,7 +346,8 @@ export default function LoginScreen() {
       const response = await login(credentials);
       if (response.success) {
         setSuccess(true);
-        setTimeout(() => router.replace('/(auth)'), 600);
+        if (response.user) setWelcomeUser(response.user as User);
+        setTimeout(() => router.replace('/(auth)'), 2200);
       } else {
         Alert.alert('Acesso negado', response.message || 'Credenciais inválidas.');
       }
@@ -251,7 +360,7 @@ export default function LoginScreen() {
     try {
       await loginWithBiometrics();
       setSuccess(true);
-      setTimeout(() => router.replace('/(auth)'), 600);
+      setTimeout(() => router.replace('/(auth)'), 2200);
     } catch (error: any) {
       Alert.alert('Erro', error?.message || 'Falha na autenticação biométrica.');
     }
@@ -261,6 +370,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }}>
+      <WelcomeOverlay user={welcomeUser} visible={success} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
